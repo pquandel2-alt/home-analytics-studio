@@ -36,6 +36,9 @@ DEFAULTS: dict[str, dict[str, Any]] = {
         "min_free_disk_mb": 300,
         "max_db_size_mb": 0,  # 0 = unlimited
         "auto_vacuum": True,
+        "auto_import_on_record": True,  # import HA history when recording is enabled
+        "auto_import_statistics_days": 365,
+        "auto_import_history_days": 10,
     },
     "appearance": {
         "preset": "dark-analytics",

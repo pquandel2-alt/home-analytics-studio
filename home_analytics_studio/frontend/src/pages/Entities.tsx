@@ -263,8 +263,9 @@ export default function EntitiesPage() {
   const setRecording = async (ids: string[], recorded: boolean) => {
     setBusy(true)
     try {
-      await api.post('entities/record', { entity_ids: ids, recorded })
+      const res = await api.post<{ import_job: number | null }>('entities/record', { entity_ids: ids, recorded })
       toast.ok(`${ids.length} Entität(en) ${recorded ? 'werden aufgezeichnet' : 'nicht mehr aufgezeichnet'}`)
+      if (res.import_job) toast.info('Vorhandene Historie aus Home Assistant wird im Hintergrund importiert (Einstellungen → Historischer Import).')
       await load()
       reloadCatalog(true)
     } catch (e) {

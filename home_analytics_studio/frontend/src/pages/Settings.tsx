@@ -209,6 +209,15 @@ function Storage({ settings, reload }: { settings: Settings; reload: () => void 
       <div className="flex items-end">
         <Switch checked={!!draft.auto_vacuum} onChange={(v) => set('auto_vacuum', v)} label="Freien Speicher automatisch zurückgeben" />
       </div>
+      <div className="md:col-span-2">
+        <Switch checked={draft.auto_import_on_record !== false} onChange={(v) => set('auto_import_on_record', v)} label="Beim Aktivieren der Aufzeichnung vorhandene Home-Assistant-Historie automatisch importieren" />
+      </div>
+      <Field label="Langzeitstatistiken importieren (Tage)" hint="Stündliche HA-Statistiken, 0 = aus">
+        <NumberInput value={draft.auto_import_statistics_days} min={0} max={3650} onChange={(v) => set('auto_import_statistics_days', v ?? 0)} />
+      </Field>
+      <Field label="Rohdaten-Historie importieren (Tage)" hint="Exakte Werte, begrenzt durch die Recorder-Aufbewahrung von HA (meist 10 Tage)">
+        <NumberInput value={draft.auto_import_history_days} min={0} max={365} onChange={(v) => set('auto_import_history_days', v ?? 0)} />
+      </Field>
       <div className="md:col-span-2"><SaveBar onSave={save} /></div>
     </Card>
   )

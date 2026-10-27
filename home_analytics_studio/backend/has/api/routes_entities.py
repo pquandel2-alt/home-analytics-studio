@@ -9,6 +9,7 @@ from pydantic import BaseModel
 from ..core.auth import Principal
 from ..core.store import detect_kind, parse_state_value
 from ..core import units
+from ..ha.importer import import_history, import_statistics
 from ..live import slim_state
 from .deps import admin, editor, services, share_read, viewer
 
@@ -103,7 +104,12 @@ async def list_entities(request: Request, search: str | None = None, domain: str
 async def set_recording(body: RecordBody, request: Request, _: Principal = Depends(editor)) -> dict:
     svc = services(request)
     attrs = {e: (svc.ha.states.get(e) or {}).get("attributes") or {} for e in body.entity_ids}
+    # entities without any stored data get their history imported from Home Assistant
+    fresh = [e for e in body.entity_ids if (svc.store.get(e) is None or svc.store.get(e).last_ts is None)]
     n = await asyncio.to_thread(svc.store.set_recording, body.entity_ids, body.recorded, attrs)
+    job_id = None
+    if body.recorded and fresh and svc.ha.connected and svc.settings.get("storage", "auto_import_on_record", True):
+        job_id = start_initial_import(svc, fresh)
     if body.recorded:
         now = time.time()
         for eid in body.entity_ids:
@@ -118,7 +124,27 @@ async def set_recording(body: RecordBody, request: Request, _: Principal = Depen
             info = svc.store.get(eid)
             if info is not None:
                 await asyncio.to_thread(svc.store.insert_samples, info.id, [(int(time.time() * 1000), None)])
-    return {"updated": n}
+    return {"updated": n, "import_job": job_id}
+
+
+def start_initial_import(svc, entity_ids: list[str]) -> int:
+    """Background job: HA long-term statistics (hourly, long) + raw history (recent, exact)."""
+    st = svc.settings.get("storage")
+    now = time.time()
+    stats_days = int(st.get("auto_import_statistics_days") or 0)
+    hist_days = int(st.get("auto_import_history_days") or 0)
+
+    async def job(handle):
+        result = {}
+        if stats_days > 0:
+            result["statistics"] = await import_statistics(svc.ha, svc.store, entity_ids, now - stats_days * 86400, now)
+        handle.progress(0.5, "Langzeitstatistiken importiert")
+        if hist_days > 0:
+            result["history"] = await import_history(svc.ha, svc.store, entity_ids, now - hist_days * 86400, now)
+        return result
+
+    return svc.jobs.start("initial_import", {"entity_ids": entity_ids, "statistics_days": stats_days,
+                                             "history_days": hist_days}, job)
 
 
 @router.get("/entities/{entity_id}")

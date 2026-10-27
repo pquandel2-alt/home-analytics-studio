@@ -107,7 +107,7 @@ class AuthService:
             validate_password(password or "")
             pw_hash = hash_password(password or "")
         with self.db.write() as conn:
-            if conn.execute(text("SELECT 1 FROM users WHERE username=:u"), {"u": username}).first():
+            if conn.execute(text("SELECT 1 FROM users WHERE lower(username)=lower(:u)"), {"u": username}).first():
                 raise ValueError("Benutzername existiert bereits")
             res = conn.execute(text("INSERT INTO users(username, display_name, password_hash, role, source, created_at)"
                                     " VALUES (:u, :d, :p, :r, :s, :t)"),
@@ -150,7 +150,7 @@ class AuthService:
 
     def authenticate(self, username: str, password: str) -> dict | None:
         with self.db.read() as conn:
-            row = conn.execute(text("SELECT * FROM users WHERE username=:u AND source='local'"),
+            row = conn.execute(text("SELECT * FROM users WHERE lower(username)=lower(:u) AND source='local'"),
                                {"u": (username or "").strip()}).mappings().first()
         if row and check_password(password or "", row["password_hash"]):
             return dict(row)

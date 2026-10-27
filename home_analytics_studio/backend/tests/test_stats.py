@@ -102,3 +102,10 @@ def test_combine_weighted():
     assert abs(b.mean - (10 * 3600 + 20 * 1800) / 5400) < 1e-9
     assert b.min == 10 and b.max == 25 and b.delta == 3 and b.count == 3
     assert b.first == 10 and b.last == 25
+
+
+def test_combine_counts_coverage_without_mean():
+    rows = [{"ts": 0, "mean": None, "delta": 1.0, "count": 0, "covered": 3600},
+            {"ts": 3600, "mean": None, "delta": 2.0, "count": 0, "covered": 3600}]
+    b = combine(rows, [0, 7200])[0]
+    assert b.coverage == 1.0 and b.delta == 3.0 and b.mean is None

@@ -46,6 +46,7 @@ class BucketStats:
     count: int = 0
     covered: float = 0.0  # seconds with a known value
     _wsum: float = field(default=0.0, repr=False)
+    _mcov: float = field(default=0.0, repr=False)  # covered seconds that have a mean
 
     @property
     def coverage(self) -> float:
@@ -190,9 +191,10 @@ def combine(rows: Iterable[dict], edges: Sequence[int]) -> list[BucketStats]:
         b = out[bi]
         cov = float(row.get("covered") or 0.0)
         mean = row.get("mean")
+        b.covered += cov  # coverage counts for counters too (imported rows carry no mean)
         if mean is not None and cov > 0:
             b._wsum += mean * cov
-            b.covered += cov
+            b._mcov += cov
         for key, fn in (("min", min), ("max", max)):
             v = row.get(key)
             if v is not None:
@@ -206,6 +208,6 @@ def combine(rows: Iterable[dict], edges: Sequence[int]) -> list[BucketStats]:
             b.delta = (b.delta or 0.0) + row["delta"]
         b.count += int(row.get("count") or 0)
     for b in out:
-        if b.covered > 0:
-            b.mean = b._wsum / b.covered
+        if b._mcov > 0:
+            b.mean = b._wsum / b._mcov
     return out

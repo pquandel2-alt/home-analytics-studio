@@ -143,3 +143,23 @@ async def test_auth_failure_status(config):
     assert await wait_for(lambda: client.status.state == "auth_failed", 5)
     await client.stop()
     await ha.stop()
+
+
+async def test_enabling_recording_imports_existing_history(env):
+    from has.api.routes_entities import start_initial_import
+
+    svc, ha = env
+    now = time.time()
+    base = int(now // 3600 * 3600) - 20 * 86400
+    ha.stat_meta["sensor.meter"] = {"statistic_id": "sensor.meter", "statistics_unit_of_measurement": "kWh", "has_sum": True}
+    ha.statistics["sensor.meter"] = [{"start": (base + h * 3600) * 1000, "sum": float(h), "state": float(h), "change": 1.0 if h else None}
+                                     for h in range(24 * 15)]
+    svc.store.set_recording(["sensor.meter"], True, {"sensor.meter": E_ATTRS})
+    job_id = start_initial_import(svc, ["sensor.meter"])
+    job = await svc.jobs.wait(job_id, 30)
+    assert job["status"] == "done", job
+    assert job["result"]["statistics"]["imported_hours"] > 300
+    assert job["result"]["history"]["inserted_samples"] >= 47
+    # a day long before recording started now has data (from HA long-term statistics)
+    day = await svc.engine.scalar({"type": "entity", "id": "sensor.meter"}, {"start": base + 5 * 86400, "end": base + 6 * 86400})
+    assert day["value"] == pytest.approx(24.0)

@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.0.3 – 2026-10-27
+
+- Beim Aktivieren der Aufzeichnung wird die vorhandene Home-Assistant-Historie jetzt automatisch importiert (Langzeitstatistiken 365 Tage, Rohdaten 10 Tage; einstellbar unter Einstellungen → Datenspeicherung). Vorher zeigten neue Karten nur Daten ab Aufzeichnungsbeginn.
+- Datenabdeckung bei importierten Zähler-Statistiken wurde als 0 % berechnet; Analysen hätten diese Zeiträume als unvollständig markiert.
+- Anmeldung: Benutzername ohne Beachtung der Groß-/Kleinschreibung.
+
 ## 1.0.2 – 2026-10-27
 
 - Build behoben: Neuere Supervisor-Versionen übergeben `ghcr.io/home-assistant/base` als Basis-Image (ohne Python → `pip: not found`). Das Dockerfile verwendet jetzt fest das multi-arch Image `python:3.12-alpine3.20`.
