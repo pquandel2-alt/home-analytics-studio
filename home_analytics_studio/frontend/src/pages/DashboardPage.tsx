@@ -26,7 +26,7 @@ import { DashboardSettingsModal, PageSettingsModal } from '../dashboard/Dashboar
 import { EditorToolbar, LayersPanel, WidgetPalette } from '../dashboard/EditorPanels'
 import GridCanvas from '../dashboard/GridCanvas'
 import ThemedSurface from '../dashboard/ThemedSurface'
-import { BREAKPOINTS, useEditor } from '../dashboard/editorStore'
+import { useEditor } from '../dashboard/editorStore'
 import { useApp, useRole } from '../store/app'
 import { useCatalog } from '../store/catalog'
 import { RuntimeContext } from '../theme/context'
@@ -164,6 +164,7 @@ export default function DashboardPage() {
   const [saving, setSaving] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle')
   const [nonce, setNonce] = useState(0)
   const versionRef = useRef<number>(1)
+  const viewBpRef = useRef<Breakpoint>('lg')
 
   const editor = useEditor()
   const pageId = Number(pageParam) || dash?.pages[0]?.id || 0
@@ -279,9 +280,9 @@ export default function DashboardPage() {
       useEditor.getState().select(null)
       setPreviewBp(null)
     } else {
-      // edit the layout of the current window size (canvas is scaled to fit next to the panels)
-      const w = window.innerWidth
-      const bp = (Object.entries(BREAKPOINTS) as [Breakpoint, number][]).sort((a, b) => b[1] - a[1]).find(([, min]) => w >= min)?.[0] || 'lg'
+      // edit exactly the layout the view is currently showing (reported by the grid in view mode);
+      // the canvas is scaled to fit next to the editor panels
+      const bp = viewBpRef.current
       setPreviewBp(bp)
       editor.setBreakpoint(bp)
     }
@@ -474,7 +475,10 @@ export default function DashboardPage() {
                 onSelect={editor.select}
                 onInteractionStart={editor.checkpoint}
                 onLayoutChange={(all) => editor.setLayouts(all, false)}
-                onBreakpoint={(bp) => !previewBp && editor.setBreakpoint(bp)}
+                onBreakpoint={(bp) => {
+                  if (!editing) viewBpRef.current = bp
+                  if (!previewBp) editor.setBreakpoint(bp)
+                }}
                 minHeight={editing ? 500 : undefined}
               />
             )}

@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.0.5 – 2026-10-27
+
+- Fix: Kacheln verschoben sich nach „Fertig“. Der Editor wählte das Layout nach der Fensterbreite, die Ansicht nach der Breite der Arbeitsfläche (ohne Navigation) – auf großen Monitoren wurde so ein anderes Layout bearbeitet als angezeigt. Der Editor bearbeitet jetzt immer das gerade angezeigte Layout.
+
 ## 1.0.4 – 2026-10-27
 
 - Linien-, Flächen- und Verlaufsdiagramme zeigen Zähler (kWh, m³ …) standardmäßig als Zählerstand/Sensorwert wie der Home-Assistant-Verlauf; umschaltbar auf „Verbrauch je Intervall“. Neue Statistik „Verlauf wie in HA“.
