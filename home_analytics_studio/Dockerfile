@@ -1,5 +1,7 @@
-ARG BUILD_FROM=python:3.12-alpine3.20
-FROM ${BUILD_FROM}
+# The Supervisor passes BUILD_FROM (newer versions default to ghcr.io/home-assistant/base,
+# which has no Python). The add-on therefore pins its own multi-arch Python base image
+# (amd64 + arm64) and deliberately ignores BUILD_FROM.
+FROM python:3.12-alpine3.20
 
 ARG BUILD_VERSION=1.0.0
 ARG BUILD_ARCH=amd64
@@ -18,9 +20,10 @@ WORKDIR /opt/has
 # A compiler toolchain is only installed as a fallback and removed afterwards.
 COPY backend/requirements.txt ./requirements.txt
 RUN apk add --no-cache tzdata tini \
-    && (pip install --only-binary=:all: -r requirements.txt \
+    && python3 -m pip --version \
+    && (python3 -m pip install --only-binary=:all: -r requirements.txt \
         || (apk add --no-cache --virtual .build-deps gcc musl-dev libffi-dev \
-            && pip install -r requirements.txt \
+            && python3 -m pip install -r requirements.txt \
             && apk del .build-deps))
 
 # The web UI is shipped pre-built (frontend/dist) so that installing the add-on

@@ -12,7 +12,7 @@ import os
 from dataclasses import dataclass, field
 from pathlib import Path
 
-VERSION = "1.0.1"
+VERSION = "1.0.2"
 
 
 def _env_bool(name: str, default: bool) -> bool:

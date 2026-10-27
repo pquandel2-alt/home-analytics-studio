@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.0.2 – 2026-10-27
+
+- Build behoben: Neuere Supervisor-Versionen übergeben `ghcr.io/home-assistant/base` als Basis-Image (ohne Python → `pip: not found`). Das Dockerfile verwendet jetzt fest das multi-arch Image `python:3.12-alpine3.20`.
+
 ## 1.0.1 – 2026-10-27
 
 - Installation behoben: `config.yaml` verwies auf ein nicht veröffentlichtes Container-Image (ghcr.io). Das Add-on wird jetzt wie vorgesehen lokal gebaut.
