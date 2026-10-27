@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.0.1 – 2026-10-27
+
+- Installation behoben: `config.yaml` verwies auf ein nicht veröffentlichtes Container-Image (ghcr.io). Das Add-on wird jetzt wie vorgesehen lokal gebaut.
+
 ## 1.0.0 – 2026-10-27
 
 Erste Veröffentlichung.
