@@ -16,12 +16,14 @@ import {
   RefreshCw,
   Settings2,
   Trash2,
+  Cast,
 } from 'lucide-react'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { ApiError, api, download } from '../api/client'
 import type { Breakpoint, Dashboard, Page } from '../api/types'
 import { Button, Empty, Field, IconButton, Input, Modal, NumberInput, Spinner, Tabs, confirmDialog, promptDialog, toast } from '../components/ui'
+import { CastModal } from '../components/Displays'
 import { DashboardSettingsModal, PageSettingsModal } from '../dashboard/DashboardSettings'
 import { EditorToolbar, LayersPanel, WidgetPalette } from '../dashboard/EditorPanels'
 import GridCanvas from '../dashboard/GridCanvas'
@@ -161,6 +163,8 @@ export default function DashboardPage() {
   const [settingsOpen, setSettingsOpen] = useState(false)
   const [pageMenu, setPageMenu] = useState<Page | null>(null)
   const [shareOpen, setShareOpen] = useState(false)
+  const [castOpen, setCastOpen] = useState(false)
+  const isUser = useApp((s) => s.status?.user?.kind === 'login' || s.status?.user?.kind === 'ingress')
   const [saving, setSaving] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle')
   const [nonce, setNonce] = useState(0)
   const versionRef = useRef<number>(1)
@@ -383,7 +387,7 @@ export default function DashboardPage() {
             </Link>
           )}
           {nav.position === 'top' && navEl}
-          <div className="ml-auto flex items-center gap-1.5">
+          <div className="ml-auto flex flex-wrap items-center justify-end gap-1.5">
             {editing && (
               <span className="mr-2 flex items-center gap-1 text-xs text-muted">
                 {saving === 'saving' && <><Loader2 className="h-3.5 w-3.5 animate-spin" /> Speichert…</>}
@@ -397,6 +401,11 @@ export default function DashboardPage() {
             <IconButton title="Präsentationsmodus" onClick={() => navigate(`/present/${dash.id}?page=${page.id}`)}>
               <Presentation className="h-4 w-4" />
             </IconButton>
+            {isUser && (
+              <Button size="sm" variant="outline" icon={<Cast className="h-4 w-4" />} onClick={() => setCastOpen(true)} title="Dashboard auf einem anderen Bildschirm (z. B. Fernseher) anzeigen">
+                <span className="hidden sm:inline">Auf Bildschirm</span>
+              </Button>
+            )}
             {canEdit && (
               <>
                 <IconButton title="Präsentationslink erstellen" onClick={() => setShareOpen(true)}>
@@ -534,6 +543,7 @@ export default function DashboardPage() {
       <DashboardSettingsModal open={settingsOpen} onClose={() => setSettingsOpen(false)} dashboard={dash} onSave={saveDashboard} />
       {pageMenu && <PageSettingsModal open={!!pageMenu} onClose={() => setPageMenu(null)} page={pageMenu} onSave={(patch) => savePageMeta(pageMenu, patch)} />}
       <ShareModal open={shareOpen} onClose={() => setShareOpen(false)} dashboard={dash} />
+      {castOpen && <CastModal open={castOpen} onClose={() => setCastOpen(false)} dashboard={dash} page={page} />}
     </RuntimeContext.Provider>
   )
 }

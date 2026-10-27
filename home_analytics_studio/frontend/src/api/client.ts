@@ -2,6 +2,11 @@
 
 let csrfToken: string | null = null
 let shareToken: string | null = null
+let displayToken: string | null = null
+
+export function setDisplayToken(token: string | null) {
+  displayToken = token
+}
 
 export function setCsrf(token: string | null) {
   csrfToken = token
@@ -34,6 +39,7 @@ function headers(extra?: Record<string, string>): Record<string, string> {
   const h: Record<string, string> = { 'X-Requested-With': 'has', ...extra }
   if (csrfToken) h['X-CSRF-Token'] = csrfToken
   if (shareToken) h['X-Share-Token'] = shareToken
+  if (displayToken) h['X-Display-Token'] = displayToken
   return h
 }
 
@@ -120,6 +126,7 @@ export function wsUrl(): string {
   u.protocol = u.protocol === 'https:' ? 'wss:' : 'ws:'
   u.hash = ''
   if (shareToken) u.searchParams.set('share', shareToken)
+  if (displayToken) u.searchParams.set('display', displayToken)
   return u.toString()
 }
 

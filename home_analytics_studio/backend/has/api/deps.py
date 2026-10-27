@@ -34,13 +34,18 @@ def is_ingress(conn: Request | WebSocket, svc: Services) -> bool:
 
 
 def resolve_principal(conn: Request | WebSocket, svc: Services) -> Principal | None:
+    # explicit device tokens take precedence: a TV/presentation link always gets its
+    # restricted read-only rights, even when it happens to come in via the ingress port
+    display = conn.headers.get("x-display-token") or conn.query_params.get("display")
+    if display:
+        return svc.displays.principal(display)
+    share = conn.headers.get("x-share-token") or conn.query_params.get("share")
+    if share:
+        return svc.auth.share_principal(share)
     if is_ingress(conn, svc):
         return svc.auth.ensure_ingress_user(conn.headers.get("x-remote-user-id"),
                                             conn.headers.get("x-remote-user-name"),
                                             conn.headers.get("x-remote-user-display-name"))
-    share = conn.headers.get("x-share-token") or conn.query_params.get("share")
-    if share:
-        return svc.auth.share_principal(share)
     token = conn.cookies.get(SESSION_COOKIE)
     if token:
         return svc.auth.session_principal(token)
@@ -55,20 +60,23 @@ async def current_principal(request: Request) -> Principal:
         request.state.principal = principal
     if principal is None:
         raise HTTPException(401, "Anmeldung erforderlich")
+    if principal.kind == "display" and not getattr(principal, "display_paired", False) \
+            and not request.url.path.endswith(("/api/displays/me", "/api/auth/status", "/api/appearance")):
+        raise HTTPException(403, "Bildschirm ist noch nicht gekoppelt")
     if request.method in MUTATING:
         # custom header forces a CORS preflight -> blocks cross-site form posts
         if request.headers.get("x-requested-with") != "has":
             raise HTTPException(403, "Ungültige Anfrage (CSRF-Schutz)")
         if principal.kind == "login" and request.headers.get("x-csrf-token") != principal.csrf:
             raise HTTPException(403, "CSRF-Token ungültig – bitte Seite neu laden")
-        if principal.kind == "share" and "/api/data/" not in request.url.path:
+        if principal.kind in ("share", "display") and "/api/data/" not in request.url.path:
             raise HTTPException(403, "Präsentationszugang ist schreibgeschützt")
     return principal
 
 
 def require(role: str) -> Callable:
     async def dep(principal: Principal = Depends(current_principal)) -> Principal:
-        if principal.kind == "share" and role != "viewer":
+        if principal.kind in ("share", "display") and role != "viewer":
             raise HTTPException(403, "Präsentationszugang ist schreibgeschützt")
         if not principal.has(role):
             raise HTTPException(403, "Keine Berechtigung")

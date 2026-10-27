@@ -13,6 +13,9 @@ export default defineConfig({
     proxy: { '/api': { target, ws: true, changeOrigin: false } },
   },
   build: {
+    // TV browsers (Samsung Tizen ~Chromium 76, LG webOS, Fire TV Silk) need older JS syntax
+    target: ['es2019', 'chrome69', 'safari12'],
+    cssTarget: ['chrome69', 'safari12'],
     outDir: 'dist',
     chunkSizeWarningLimit: 1500,
     rollupOptions: {

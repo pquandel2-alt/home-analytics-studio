@@ -186,7 +186,8 @@ async def test_thermostat_setpoint_and_heating_share(env):
     share = await svc.engine.scalar({"type": "entity", "id": vid_h}, {"start": now - 4 * 3600, "end": now - 2 * 3600})
     assert share["value"] == pytest.approx(50.0, abs=1)      # heating 1 h of 2 h
     sp = await svc.engine.series({"type": "entity", "id": vid_sp, "stat": "state"}, {"start": now - 4 * 3600, "end": now}, "1h")
-    assert [round(v) for v in sp["values"] if v is not None][:3] == [21, 21, 19]
+    vals = [round(v) for v in sp["values"] if v is not None]
+    assert vals[0] == 21 and 19 in vals and vals.index(19) > 0   # set point lowered from 21 to 19 (hour alignment varies)
     # live attribute change is recorded
     await ha.push_state("climate.buro", "heat", attrs(22.5, "heating"))
     assert await wait_for(lambda: svc.store.get(vid_sp).last_value == 22.5, 5)

@@ -1,6 +1,6 @@
 import clsx from 'clsx'
 import { ChevronLeft, ChevronRight, Maximize, Minimize, Pause, Play, X } from 'lucide-react'
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { api, getShareToken } from '../api/client'
 import type { Dashboard } from '../api/types'
@@ -15,18 +15,37 @@ import { RuntimeContext } from '../theme/context'
 export default function PresentPage() {
   const { id } = useParams()
   const [params] = useSearchParams()
+  return (
+    <PresentationView
+      dashboardId={Number(id)}
+      startPageId={Number(params.get('page')) || null}
+      kiosk={params.get('kiosk') === '1' || !!getShareToken()}
+      fitInitial={params.get('fit') !== '0'}
+    />
+  )
+}
+
+/** Fullscreen dashboard view – used by the presentation route and by remote displays (TVs). */
+export function PresentationView({ dashboardId, startPageId, kiosk, fitInitial = true, autoplay = true, overlay }: {
+  dashboardId: number
+  startPageId: number | null
+  kiosk: boolean
+  fitInitial?: boolean
+  autoplay?: boolean
+  overlay?: React.ReactNode
+}) {
+  const id = String(dashboardId)
   const navigate = useNavigate()
-  const kiosk = params.get('kiosk') === '1' || !!getShareToken()
   const timezone = useApp((s) => s.appearance?.timezone)
   const currency = useApp((s) => s.appearance?.general?.currency) || '€'
   const [dash, setDash] = useState<Dashboard | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [index, setIndex] = useState(0)
-  const [playing, setPlaying] = useState(true)
+  const [playing, setPlaying] = useState(autoplay)
   const [nonce, setNonce] = useState(0)
   const [controls, setControls] = useState(true)
   const [isFull, setIsFull] = useState(false)
-  const [fit, setFit] = useState(params.get('fit') !== '0')
+  const [fit, setFit] = useState(fitInitial)
   const [viewport, setViewport] = useState({ w: window.innerWidth, h: window.innerHeight })
   const hideTimer = useRef<number | null>(null)
   const [now, setNow] = useState(new Date())
@@ -50,14 +69,16 @@ export default function PresentPage() {
     return dash.pages.filter((p) => !p.hidden && (sel === 'all' || !Array.isArray(sel) || sel.includes(p.id)))
   }, [dash])
 
+  useEffect(() => setPlaying(autoplay), [autoplay, dashboardId, startPageId])
+
   useEffect(() => {
-    const start = Number(params.get('page'))
+    const start = startPageId
     if (start && pages.length) {
       const i = pages.findIndex((p) => p.id === start)
       if (i >= 0) setIndex(i)
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [pages.length])
+  }, [pages.length, startPageId])
 
   const pres = dash?.settings.presentation
   // auto page rotation
@@ -175,6 +196,7 @@ export default function PresentPage() {
             </IconButton>
           )}
         </div>
+        {overlay}
       </ThemedSurface>
     </RuntimeContext.Provider>
   )

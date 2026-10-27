@@ -10,7 +10,7 @@ from fastapi.exceptions import RequestValidationError
 from fastapi.responses import FileResponse, JSONResponse, Response
 from starlette.middleware.gzip import GZipMiddleware
 
-from .api import routes_auth, routes_dashboards, routes_data, routes_entities, routes_system
+from .api import routes_auth, routes_dashboards, routes_data, routes_displays, routes_entities, routes_system
 from .api.deps import resolve_principal
 from .config import VERSION, Config, load_config
 from .services import Services
@@ -58,7 +58,7 @@ def create_app(config: Config | None = None, start_background: bool = True) -> F
         errors = [f"{'.'.join(str(x) for x in e.get('loc', [])[1:])}: {e.get('msg')}" for e in exc.errors()]
         return JSONResponse({"detail": "Ungültige Eingabe: " + "; ".join(errors)}, status_code=422)
 
-    for r in (routes_auth, routes_entities, routes_data, routes_dashboards, routes_system):
+    for r in (routes_auth, routes_entities, routes_data, routes_dashboards, routes_displays, routes_system):
         app.include_router(r.router)
 
     @app.get("/api/health")
@@ -82,6 +82,10 @@ def create_app(config: Config | None = None, start_background: bool = True) -> F
             await ws.close(code=4401)
             return
         await svc.live.serve(ws, principal)
+
+    @app.get("/tv", include_in_schema=False)
+    async def tv_redirect() -> Response:
+        return Response(status_code=307, headers={"Location": "./#/display"})
 
     static_dir: Path | None = config.static_dir
     if static_dir and static_dir.exists():

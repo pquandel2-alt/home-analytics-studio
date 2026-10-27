@@ -151,6 +151,25 @@ Mauszeiger blendet sich aus. Tasten: ←/→ Seite, Leertaste Pause, F Vollbild.
 **Wanddisplays/Kiosk:** Über das Link-Symbol einen **schreibgeschützten Präsentationslink** erzeugen. Er öffnet
 nur dieses Dashboard ohne Anmeldung, kann keine Einstellungen ändern und ist jederzeit widerrufbar.
 
+## Auf Bildschirm anzeigen (Fernseher, Wandtablet)
+
+Dashboards lassen sich vom Handy oder PC aus auf einem anderen Bildschirm im Netzwerk anzeigen:
+
+1. **Einmalig am Fernseher/Tablet** im Browser `http://<HA-IP>:8100/tv` öffnen (z. B. `http://192.168.178.101:8100/tv`)
+   und als Lesezeichen/Startseite speichern. Es erscheint ein 4-stelliger Kopplungscode.
+2. Am Handy ein Dashboard öffnen → **„Auf Bildschirm“** → „Neuen Bildschirm koppeln“ → Code und Name eingeben
+   (alternativ *Einstellungen → Bildschirme (TV)*).
+3. Danach jederzeit: **„Auf Bildschirm“** → Bildschirm wählen → nur die aktuelle Seite oder das ganze Dashboard
+   (optional mit automatischem Seitenwechsel) → **Senden**. Der Bildschirm wechselt sofort.
+
+Der Bildschirm bleibt dauerhaft gekoppelt, verbindet sich nach WLAN-Abbruch oder Neustart selbst neu und zeigt wieder das
+zuletzt gesendete Dashboard. Mit „Identifizieren“ blendet ein Bildschirm seinen Namen groß ein. Bildschirme haben nur
+Lesezugriff und lassen sich unter *Einstellungen → Bildschirme* umbenennen, neu laden oder entkoppeln.
+
+Geeignet sind alle Geräte mit Browser: Samsung-/LG-Fernseher (eingebauter Browser muss geöffnet bleiben),
+Fire TV / Android TV (Silk-Browser oder eine Kiosk-App wie „Fully Kiosk Browser“), Tablets, PCs. Chromecast/AirPlay wird
+bewusst nicht verwendet, da dies eine Gerätesteuerung über Home Assistant erfordern würde.
+
 ## Backup und Export
 
 * **Einstellungen → Backup:** vollständige Sicherung (Datenbank + Konfiguration) oder nur Konfiguration;

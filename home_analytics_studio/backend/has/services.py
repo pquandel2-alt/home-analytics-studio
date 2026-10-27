@@ -12,6 +12,7 @@ from .config import Config
 from .core.analysis import AnalysisEngine
 from .core.auth import AuthService
 from .core.backup import BackupManager
+from .core.displays import DisplayService
 from .core.engine import DataEngine
 from .core.jobs import JobManager
 from .core.settings_store import SettingsStore
@@ -56,6 +57,7 @@ class Services:
         self.jobs = JobManager(self.db)
         self.jobs.recover()
         self.auth = AuthService(self.db, self.settings)
+        self.displays = DisplayService(self.db)
         self.ha = HAClient(self._endpoint)
         self.live = LiveHub(self)
         self.recorder = Recorder(self.ha, self.store, self.settings, self.jobs, self.live.publish_state)

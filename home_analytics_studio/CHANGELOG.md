@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.1.0 – 2026-10-28
+
+- Neu: **Auf Bildschirm anzeigen** – Dashboards vom Handy aus auf Fernsehern, Wandtablets oder PCs im Netzwerk anzeigen. Bildschirm öffnet einmalig `http://<HA-IP>:8100/tv`, wird per 4-stelligem Code gekoppelt und empfängt Dashboards live (WebSocket). Dauerhaft gekoppelt, automatische Wiederverbindung, nur Lesezugriff. Verwaltung unter Einstellungen → Bildschirme (TV).
+- Oberfläche für ältere TV-Browser kompatibel übersetzt (Samsung Tizen, LG webOS, Fire TV).
+- Sicherheit: Präsentations- und Bildschirm-Token haben stets Vorrang vor der Ingress-Anmeldung.
+
 ## 1.0.9 – 2026-10-27
 
 - Neu: „Historie aufteilen“ (Entitäten → Details) für umgehängte oder ausgetauschte Geräte. Werte vor dem Wechsel wandern in eine eigene Archiv-Reihe (`<entität>::archiv_JJJJMMTT`), die in Widgets und Formeln nutzbar bleibt; die Entität enthält danach nur Werte ab dem Wechsel.

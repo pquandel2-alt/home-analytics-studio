@@ -27,6 +27,15 @@ export const useLive = create<LiveStore>((set) => ({
   setStates: (s) => set((st) => ({ states: { ...st.states, ...s } })),
 }))
 
+type Listener = (msg: any) => void
+const listeners = new Set<Listener>()
+
+/** Subscribe to raw websocket messages (e.g. remote display commands). */
+export function onLiveMessage(fn: Listener): () => void {
+  listeners.add(fn)
+  return () => listeners.delete(fn)
+}
+
 class LiveConnection {
   private ws: WebSocket | null = null
   private refs = new Map<string, number>()
@@ -94,6 +103,13 @@ class LiveConnection {
   }
 
   private handle(msg: any) {
+    listeners.forEach((fn) => {
+      try {
+        fn(msg)
+      } catch {
+        /* ignore listener errors */
+      }
+    })
     switch (msg.type) {
       case 'hello':
         useLive.setState({ haStatus: msg.ha_status })

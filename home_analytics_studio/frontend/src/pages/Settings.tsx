@@ -19,6 +19,7 @@ import {
   ShieldCheck,
   Stethoscope,
   Trash2,
+  Tv,
   Upload,
   XCircle,
 } from 'lucide-react'
@@ -27,6 +28,7 @@ import { Link, useNavigate, useParams } from 'react-router-dom'
 import { api, download } from '../api/client'
 import { useLive } from '../api/live'
 import type { Dashboard, Job, Source, ThemeSpec } from '../api/types'
+import { DisplaysSettings } from '../components/Displays'
 import RangePicker from '../components/RangePicker'
 import { SourceList } from '../components/SourcePicker'
 import { Badge, Button, Card, Field, IconButton, Input, Modal, NumberInput, PageHeader, Select, Spinner, Switch, confirmDialog, toast, useAsync } from '../components/ui'
@@ -47,6 +49,7 @@ const SECTIONS = [
   { id: 'dashboards', label: 'Dashboard-Verwaltung', icon: LayoutDashboard },
   { id: 'appearance', label: 'Erscheinungsbild', icon: Palette },
   { id: 'security', label: 'Benutzer und Sicherheit', icon: ShieldCheck },
+  { id: 'displays', label: 'Bildschirme (TV)', icon: Tv },
   { id: 'ai', label: 'KI-Anbieter (optional)', icon: Bot },
   { id: 'backup', label: 'Backup', icon: DatabaseBackup },
   { id: 'export', label: 'Export', icon: FileDown },
@@ -778,6 +781,7 @@ export default function SettingsPage() {
       case 'dashboards': return <LinkCard title="Dashboard-Verwaltung" text="Dashboards anlegen, umbenennen, duplizieren, sortieren, exportieren/importieren und als Startseite festlegen." to="/dashboards" icon={LayoutDashboard} />
       case 'appearance': return <Appearance settings={settings} reload={reload} />
       case 'security': return <Security settings={settings} reload={reload} />
+      case 'displays': return <DisplaysSettings />
       case 'ai': return <AiSection settings={settings} reload={reload} />
       case 'backup': return <BackupSection settings={settings} reload={reload} />
       case 'export': return <ExportSection />

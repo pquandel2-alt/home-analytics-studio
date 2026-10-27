@@ -8,6 +8,7 @@ import AiExportPage from './pages/AiExport'
 import AnalysisPage from './pages/Analysis'
 import DashboardPage from './pages/DashboardPage'
 import DashboardsPage from './pages/Dashboards'
+import DisplayPage from './pages/Display'
 import EntitiesPage from './pages/Entities'
 import LoginPage from './pages/Login'
 import MetricsPage from './pages/Metrics'
@@ -103,11 +104,30 @@ function HomeRedirect() {
   return <Navigate to="/dashboards" replace />
 }
 
+function Root() {
+  // remote displays (TV) run without login and without the app shell
+  const loc = useLocation()
+  if (loc.pathname === '/display') return <DisplayRoot />
+  return (
+    <>
+      <ShareBootstrap />
+      <Gate />
+    </>
+  )
+}
+
+function DisplayRoot() {
+  const appearance = useApp((s) => s.appearance)
+  useEffect(() => {
+    applyThemeToElement(document.documentElement, resolveTheme(appearance?.appearance))
+  }, [appearance])
+  return <DisplayPage />
+}
+
 export default function App() {
   return (
     <HashRouter>
-      <ShareBootstrap />
-      <Gate />
+      <Root />
       <Toaster />
       <ConfirmHost />
       <PromptHost />

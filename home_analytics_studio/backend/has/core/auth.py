@@ -47,13 +47,15 @@ class Principal:
     share_dashboard_id: int | None = None
     csrf: str | None = None
     session_hash: str | None = None
+    display_id: int | None = None
+    display_paired: bool = False
 
     def has(self, role: str) -> bool:
         return ROLE_LEVEL.get(self.role, -1) >= ROLE_LEVEL[role]
 
     def as_dict(self) -> dict:
         return {"id": self.user_id, "username": self.username, "role": self.role, "kind": self.kind,
-                "share_dashboard_id": self.share_dashboard_id}
+                "share_dashboard_id": self.share_dashboard_id, "display_id": self.display_id}
 
 
 class RateLimiter:

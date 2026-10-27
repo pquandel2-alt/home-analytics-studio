@@ -52,9 +52,21 @@ class LiveHub:
                     msg = {"type": "state", "entity_id": entity_id, "state": slim_state(state)}
                 self._enqueue(c, msg)
 
+    def send_display(self, display_id: int, msg: dict) -> int:
+        """Push a command to all connections of a remote display. Returns number of receivers."""
+        n = 0
+        for c in list(self.clients):
+            if c.principal.kind == "display" and c.principal.display_id == display_id:
+                self._enqueue(c, msg)
+                n += 1
+        return n
+
+    def online_displays(self) -> set[int]:
+        return {c.principal.display_id for c in self.clients if c.principal.kind == "display"}
+
     def broadcast(self, msg: dict) -> None:
         for c in list(self.clients):
-            if msg.get("type") == "job" and c.principal.kind == "share":
+            if msg.get("type") == "job" and c.principal.kind in ("share", "display"):
                 continue
             self._enqueue(c, msg)
 

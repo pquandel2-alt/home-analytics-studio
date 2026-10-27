@@ -209,6 +209,21 @@ jobs = Table(
     Column("updated_at", Float, nullable=False),
 )
 
+displays = Table(
+    "displays",
+    metadata,
+    Column("id", Integer, primary_key=True),
+    Column("name", Text, nullable=False),
+    Column("token_hash", Text, nullable=False, unique=True),
+    Column("pair_code", Text),
+    Column("paired", Integer, nullable=False, server_default=text("0")),
+    Column("current", Text),  # JSON: dashboard_id, page_id, present, ts
+    Column("created_at", Float, nullable=False),
+    Column("last_seen", Float),
+    Column("user_agent", Text),
+    Column("screen", Text),
+)
+
 audit_log = Table(
     "audit_log",
     metadata,
@@ -247,11 +262,16 @@ def _m4_max_rate(conn: Connection) -> None:
         conn.execute(text("ALTER TABLE entities ADD COLUMN max_rate REAL"))
 
 
+def _m5_displays(conn: Connection) -> None:
+    displays.create(conn, checkfirst=True)
+
+
 MIGRATIONS: list[tuple[int, str, Migration]] = [
     (1, "initial schema", _m1_initial),
     (2, "secondary indexes", _m2_indexes),
     (3, "raw retention watermark", _m3_raw_from),
     (4, "counter plausibility limit", _m4_max_rate),
+    (5, "remote displays", _m5_displays),
 ]
 
 SCHEMA_VERSION = MIGRATIONS[-1][0]
