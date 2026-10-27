@@ -8,6 +8,7 @@ import { Badge, Button, ColorInput, Field, IconButton, Input, Modal, Select, Swi
 export const STAT_OPTIONS: { value: Stat; label: string }[] = [
   { value: 'auto', label: 'Automatisch (Verbrauch bzw. Mittelwert)' },
   { value: 'current', label: 'Aktueller Zustand (live)' },
+  { value: 'state', label: 'Verlauf wie in HA (Sensorwert / Zählerstand)' },
   { value: 'mean', label: 'Mittelwert (zeitgewichtet)' },
   { value: 'min', label: 'Minimum' },
   { value: 'max', label: 'Maximum' },

@@ -17,7 +17,7 @@ from . import units
 
 log = logging.getLogger(__name__)
 
-STAT_FIELDS = ("auto", "mean", "min", "max", "first", "last", "delta", "count", "coverage")
+STAT_FIELDS = ("auto", "state", "mean", "min", "max", "first", "last", "delta", "count", "coverage")
 MAX_LIVE_HISTORY = 10 * 86400
 
 
@@ -269,6 +269,8 @@ class DataEngine:
 def _stat_value(b: BucketStats, stat: str, kind: str) -> float | None:
     if stat in (None, "", "auto"):
         stat = "mean" if kind == MEASUREMENT else "delta"
+    elif stat == "state":  # like the HA history graph: sensor value / meter reading
+        stat = "mean" if kind == MEASUREMENT else "last"
     if stat == "coverage":
         return round(b.coverage, 4)
     if stat == "count":

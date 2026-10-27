@@ -211,3 +211,17 @@ def test_uploads(ingress):
     assert ingress.get(f"/api/uploads/{name}").content == png
     assert ingress.post("/api/uploads", files={"file": ("x.svg", b"<svg><script>alert(1)</script></svg>", "image/svg+xml")}).status_code == 400
     assert ingress.get("/api/uploads/..%2f..%2fetc%2fpasswd").status_code == 404
+
+
+def test_state_stat_shows_meter_reading_like_ha(app, ingress):
+    svc = app.state.services
+    svc.store.set_recording(["sensor.zaehler"], True, {"sensor.zaehler": {"unit_of_measurement": "kWh", "state_class": "total_increasing"}})
+    info = svc.store.get("sensor.zaehler")
+    t = int(time.time() // 3600 * 3600) - 4 * 3600
+    # 1 kWh resolution: readings change rarely, buckets in between must carry the reading
+    svc.store.insert_samples(info.id, [(t * 1000, 3560.0), ((t + 5400) * 1000, 3561.0), ((t + 9000) * 1000, 3562.0)])
+    rng = {"start": t, "end": t + 4 * 3600}
+    state = ingress.post("/api/data/series", json={"source": {"type": "entity", "id": "sensor.zaehler", "stat": "state"}, "range": rng, "interval": "1h"}).json()
+    assert state["values"] == [3560.0, 3561.0, 3562.0, 3562.0]
+    delta = ingress.post("/api/data/series", json={"source": {"type": "entity", "id": "sensor.zaehler"}, "range": rng, "interval": "1h"}).json()
+    assert delta["values"] == [0.0, 1.0, 1.0, 0.0]

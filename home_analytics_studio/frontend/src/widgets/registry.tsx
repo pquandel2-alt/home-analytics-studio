@@ -50,6 +50,27 @@ function sourcesOf(cfg: Record<string, any>): Source[] {
 const seriesReqs = (cfg: Record<string, any>): DataRequest[] =>
   sourcesOf(cfg).map((s, i) => ({ kind: 'series', source: s, range: cfg.range, interval: cfg.interval || 'auto', key: `s${i}` }))
 
+/** Line-like charts: entity sources without an explicit statistic follow cfg.counterMode
+ *  ('state' = reading like the HA history graph, 'delta' = consumption per interval). */
+const lineReqs = (cfg: Record<string, any>): DataRequest[] =>
+  seriesReqs(cfg).map((r) =>
+    r.source.type === 'entity' && (!r.source.stat || r.source.stat === 'auto')
+      ? { ...r, source: { ...r.source, stat: cfg.counterMode === 'delta' ? 'auto' : 'state' } }
+      : r,
+  )
+
+const counterModeField: FieldDef = {
+  key: 'counterMode',
+  label: 'Zähler (z. B. kWh) darstellen als',
+  type: 'select',
+  options: [
+    { value: 'state', label: 'Zählerstand / Sensorwert (wie HA-Verlauf)' },
+    { value: 'delta', label: 'Verbrauch je Intervall' },
+  ],
+}
+
+const axisField: FieldDef = { key: 'axisToData', label: 'Y-Achse endet am höchsten / niedrigsten Wert', type: 'bool' }
+
 const scalarReqs = (cfg: Record<string, any>): DataRequest[] =>
   sourcesOf(cfg).map((s, i) => ({ kind: 'scalar', source: s, range: cfg.range, key: `s${i}` }))
 
@@ -288,11 +309,11 @@ export const WIDGETS: WidgetDef[] = [
     icon: LineChart,
     description: 'Zeitverlauf einer oder mehrerer Quellen',
     defaultSize: { w: 12, h: 7 },
-    defaults: { range: 'last_24h', interval: 'auto', smooth: true, showLegend: true, showGrid: true, sources: [] },
+    defaults: { range: 'last_24h', interval: 'auto', smooth: true, showLegend: true, showGrid: true, counterMode: 'state', axisToData: true, sources: [] },
     sources: 'multi',
     dataFields: { range: true, interval: true, stat: true },
-    fields: [...lineFields, { key: 'fill', label: 'Fläche füllen', type: 'bool' }, ...chartFields],
-    requests: seriesReqs,
+    fields: [counterModeField, axisField, ...lineFields, { key: 'fill', label: 'Fläche füllen', type: 'bool' }, ...chartFields],
+    requests: lineReqs,
     Component: TimeSeriesChart,
   },
   {
@@ -302,11 +323,11 @@ export const WIDGETS: WidgetDef[] = [
     icon: AreaChart,
     description: 'Verlauf mit gefüllter Fläche, optional gestapelt',
     defaultSize: { w: 12, h: 7 },
-    defaults: { range: 'last_24h', interval: 'auto', smooth: true, showLegend: true, showGrid: true, sources: [] },
+    defaults: { range: 'last_24h', interval: 'auto', smooth: true, showLegend: true, showGrid: true, counterMode: 'state', axisToData: true, sources: [] },
     sources: 'multi',
     dataFields: { range: true, interval: true, stat: true },
-    fields: [...lineFields, { key: 'stack', label: 'Gestapelt', type: 'bool' }, { key: 'fillOpacity', label: 'Deckkraft Fläche', type: 'number', min: 0, max: 1, step: 0.05 }, ...chartFields],
-    requests: seriesReqs,
+    fields: [counterModeField, axisField, ...lineFields, { key: 'stack', label: 'Gestapelt', type: 'bool' }, { key: 'fillOpacity', label: 'Deckkraft Fläche', type: 'number', min: 0, max: 1, step: 0.05 }, ...chartFields],
+    requests: lineReqs,
     Component: TimeSeriesChart,
   },
   {
@@ -456,7 +477,7 @@ export const WIDGETS: WidgetDef[] = [
       const s = sourcesOf(cfg)[0]
       if (!s) return []
       return [
-        { kind: 'series', source: s, range: cfg.range, interval: cfg.interval || 'auto', key: 's0' },
+        { kind: 'series', source: !s.stat || s.stat === 'auto' ? { ...s, stat: 'state' } : s, range: cfg.range, interval: cfg.interval || 'auto', key: 's0' },
         { kind: 'scalar', source: { ...s, stat: 'current' }, range: 'today', key: 'cur' },
       ]
     },

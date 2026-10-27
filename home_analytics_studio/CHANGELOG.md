@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.0.4 – 2026-10-27
+
+- Linien-, Flächen- und Verlaufsdiagramme zeigen Zähler (kWh, m³ …) standardmäßig als Zählerstand/Sensorwert wie der Home-Assistant-Verlauf; umschaltbar auf „Verbrauch je Intervall“. Neue Statistik „Verlauf wie in HA“.
+- Y-Achse endet am höchsten (Linien: beginnt am niedrigsten) Wert, der Höchstwert ist immer beschriftet; abschaltbar.
+- Achsenbeschriftung ohne überflüssige Nullen (0,8 statt 0,800).
+
 ## 1.0.3 – 2026-10-27
 
 - Beim Aktivieren der Aufzeichnung wird die vorhandene Home-Assistant-Historie jetzt automatisch importiert (Langzeitstatistiken 365 Tage, Rohdaten 10 Tage; einstellbar unter Einstellungen → Datenspeicherung). Vorher zeigten neue Karten nur Daten ab Aufzeichnungsbeginn.

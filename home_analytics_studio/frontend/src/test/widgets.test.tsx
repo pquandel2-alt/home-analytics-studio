@@ -1,6 +1,7 @@
 import { render, screen } from '@testing-library/react'
 import { describe, expect, it } from 'vitest'
 import { builderToFormula } from '../pages/Metrics'
+import { axisNumber } from '../widgets/charts'
 import { formatNumber, formatPct, formatValue } from '../utils/format'
 import { WIDGETS, widgetDef } from '../widgets/registry'
 import { renderMarkdown } from '../widgets/other'
@@ -26,9 +27,24 @@ describe('widget registry', () => {
     }
   })
 
+  it('line charts show meter readings by default and consumption on request', () => {
+    const src = { type: 'entity' as const, id: 'sensor.z' }
+    const def = widgetDef('line')!
+    expect(def.requests({ ...def.defaults, sources: [src] })[0].source.stat).toBe('state')
+    expect(def.requests({ ...def.defaults, counterMode: 'delta', sources: [src] })[0].source.stat).toBe('auto')
+    expect(def.requests({ ...def.defaults, sources: [{ ...src, stat: 'max' }] })[0].source.stat).toBe('max')
+    expect(widgetDef('bar')!.requests({ sources: [src] })[0].source.stat).toBeUndefined()
+  })
+
+  it('formats axis labels without trailing zeros', () => {
+    expect(axisNumber(0.8)).toBe('0,8')
+    expect(axisNumber(3565)).toBe('3.565')
+    expect(axisNumber(12.5)).toBe('12,5')
+  })
+
   it('builds batch requests for configured sources', () => {
     const src = { type: 'entity' as const, id: 'sensor.a' }
-    expect(widgetDef('line')!.requests({ sources: [src, { type: 'metric', id: 'k' }], range: 'last_7d', interval: '1d' })).toEqual([
+    expect(widgetDef('history')!.requests({ sources: [src, { type: 'metric', id: 'k' }], range: 'last_7d', interval: '1d' })).toEqual([
       { kind: 'series', source: src, range: 'last_7d', interval: '1d', key: 's0' },
       { kind: 'series', source: { type: 'metric', id: 'k' }, range: 'last_7d', interval: '1d', key: 's1' },
     ])

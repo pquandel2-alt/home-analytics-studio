@@ -22,6 +22,14 @@ import {
 } from './common'
 import type { WidgetProps } from './types'
 
+/** Compact axis label: no trailing zeros (0,8 instead of 0,800), thousands grouping for large values. */
+export function axisNumber(v: number, decimals?: number | null): string {
+  if (decimals != null) return formatNumber(v, { decimals })
+  const a = Math.abs(v)
+  const max = a >= 100 ? 0 : a >= 10 ? 1 : a >= 1 ? 2 : 3
+  return new Intl.NumberFormat('de-DE', { maximumFractionDigits: max, minimumFractionDigits: 0 }).format(v)
+}
+
 function sourcesOf(cfg: Record<string, any>): Source[] {
   return ((cfg.sources as Source[]) || []).filter((s) => s && s.id)
 }
@@ -49,11 +57,12 @@ export function TimeSeriesChart({ cfg, results, widget }: WidgetProps) {
       name: u || '',
       nameTextStyle: { color: theme.muted, fontSize: 10, align: idx ? 'right' : 'left' },
       scale: !isBar && cfg.zeroBased !== true,
-      min: cfg.yMin ?? undefined,
-      max: cfg.yMax ?? undefined,
+      // axis ends at the highest (and for line charts starts at the lowest) value, so the max is always labelled
+      min: cfg.yMin ?? (!isBar && cfg.zeroBased !== true && cfg.axisToData !== false && kind !== 'stacked_bar' ? 'dataMin' : undefined),
+      max: cfg.yMax ?? (cfg.axisToData !== false && !stacked ? 'dataMax' : undefined),
       ...ax,
       splitLine: idx ? { show: false } : ax.splitLine,
-      axisLabel: { ...ax.axisLabel, formatter: (v: number) => formatNumber(v, { ...fmt, decimals: Math.abs(v) >= 100 ? 0 : fmt.decimals ?? undefined }) },
+      axisLabel: { ...ax.axisLabel, showMaxLabel: true, showMinLabel: true, formatter: (v: number) => axisNumber(v, fmt.decimals) },
     }))
     const out: any[] = []
     series.forEach((s, i) => {

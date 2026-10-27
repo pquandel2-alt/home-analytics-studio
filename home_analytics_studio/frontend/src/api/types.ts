@@ -20,7 +20,7 @@ export interface AuthStatus {
 }
 
 export type SourceType = 'entity' | 'metric' | 'formula'
-export type Stat = 'auto' | 'mean' | 'min' | 'max' | 'first' | 'last' | 'delta' | 'count' | 'coverage' | 'current'
+export type Stat = 'auto' | 'state' | 'mean' | 'min' | 'max' | 'first' | 'last' | 'delta' | 'count' | 'coverage' | 'current'
 
 export interface Source {
   type: SourceType
