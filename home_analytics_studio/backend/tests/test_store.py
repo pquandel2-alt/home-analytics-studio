@@ -186,3 +186,28 @@ def test_plausibility_limit_ignores_jumps_and_is_reversible(store):
     assert abs(days - 14.0) < 1e-6
     store.configure("sensor.meter2", max_rate=None)
     assert store.query_edges(store.get("sensor.meter2"), rng, now=now)[0].delta > 2000
+
+
+def test_split_history_for_moved_device(store):
+    info, attrs = _record(store, eid="sensor.thermo", unit="°C", sc="measurement", dc="temperature")
+    now = time.time()
+    t0 = int(now // H * H) - 10 * H
+    swap = t0 + 6 * H + 1800
+    rows = [((t0 + i * 600) * 1000, 21.0) for i in range(39)]                    # bathroom 21 °C until swap
+    rows += [((swap + 3 * 600 + i * 600) * 1000, 24.0) for i in range(12)]          # office 24 °C after swap
+    store.insert_samples(info.id, rows)
+    store.rollup(now)
+    res = store.split_history("sensor.thermo", swap, "sensor.thermo::archiv_x", "Bad alt")
+    assert res["moved_samples"] == 39
+    office = store.get("sensor.thermo")
+    archive = store.get("sensor.thermo::archiv_x")
+    assert archive is not None and not archive.recorded
+    before = store.query_edges(office, [t0, swap], now=now)[0]
+    assert before.mean is None and before.count == 0                              # office has no bathroom data
+    after = store.query_edges(office, [swap, int(now)], now=now)[0]
+    assert abs(after.mean - 24.0) < 1e-9                                          # no carried-over 21 °C
+    old = store.query_edges(archive, [t0, swap], now=now)[0]
+    assert abs(old.mean - 21.0) < 1e-9
+    # long range (hourly rollups) is consistent too
+    long_office = store.query_edges(store.get("sensor.thermo"), [t0 - 5 * 86400, int(now)], now=now)[0]
+    assert abs(long_office.mean - 24.0) < 0.01

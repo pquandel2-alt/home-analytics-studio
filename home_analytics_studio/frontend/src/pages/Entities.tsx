@@ -104,6 +104,53 @@ function ImportModal({ open, onClose, ids }: { open: boolean; onClose: () => voi
   )
 }
 
+function SplitHistory({ row, onDone }: { row: EntityRow; onDone: () => void }) {
+  const [open, setOpen] = useState(false)
+  const [at, setAt] = useState('')
+  const [name, setName] = useState(`${row.name} (vorheriger Standort)`)
+  const submit = async () => {
+    const ts = new Date(at).getTime() / 1000
+    if (!at || !Number.isFinite(ts)) return toast.error('Bitte Zeitpunkt angeben')
+    const ok = await confirmDialog(
+      'Historie aufteilen',
+      `Alle Werte von ${row.entity_id} vor ${new Date(ts * 1000).toLocaleString('de-DE')} werden in eine eigene Archiv-Reihe „${name}“ verschoben. Die Entität enthält danach nur noch Werte ab diesem Zeitpunkt.`,
+      { confirmLabel: 'Aufteilen' },
+    )
+    if (!ok) return
+    try {
+      const r = await api.post<{ archive: string; moved_samples: number }>(`entities/${row.entity_id}/split`, { at: ts, archive_name: name })
+      toast.ok(`${r.moved_samples} Messwerte nach ${r.archive} verschoben`)
+      onDone()
+    } catch (e) {
+      toast.error(e)
+    }
+  }
+  return (
+    <div className="rounded-lg border border-line/50 p-3">
+      <div className="flex items-center justify-between">
+        <div>
+          <div className="text-sm font-medium">Gerät umgehängt oder ausgetauscht?</div>
+          <div className="text-xs text-muted">Historie ab einem Zeitpunkt trennen – die alten Werte bleiben als Archiv erhalten.</div>
+        </div>
+        {!open && <Button size="sm" onClick={() => setOpen(true)}>Historie aufteilen</Button>}
+      </div>
+      {open && (
+        <div className="mt-3 grid gap-3 md:grid-cols-[1fr_1fr_auto]">
+          <Field label="Zeitpunkt des Wechsels">
+            <Input type="datetime-local" value={at} onChange={(e) => setAt(e.target.value)} />
+          </Field>
+          <Field label="Name des Archivs">
+            <Input value={name} onChange={(e) => setName(e.target.value)} />
+          </Field>
+          <div className="flex items-end">
+            <Button variant="primary" onClick={submit}>Aufteilen</Button>
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
 function EntityDetail({ row, onClose, onChanged }: { row: EntityRow; onClose: () => void; onChanged: () => void }) {
   const isAdmin = useRole('admin')
   const canEdit = useRole('editor')
@@ -180,6 +227,9 @@ function EntityDetail({ row, onClose, onChanged }: { row: EntityRow; onClose: ()
               </Button>
             </div>
           </div>
+        )}
+        {isAdmin && row.in_ha && (
+          <SplitHistory row={row} onDone={() => { onChanged(); onClose() }} />
         )}
         {isAdmin && (
           <div className="rounded-lg border border-bad/30 p-3">

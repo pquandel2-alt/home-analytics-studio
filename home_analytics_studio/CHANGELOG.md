@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.0.9 – 2026-10-27
+
+- Neu: „Historie aufteilen“ (Entitäten → Details) für umgehängte oder ausgetauschte Geräte. Werte vor dem Wechsel wandern in eine eigene Archiv-Reihe (`<entität>::archiv_JJJJMMTT`), die in Widgets und Formeln nutzbar bleibt; die Entität enthält danach nur Werte ab dem Wechsel.
+
 ## 1.0.8 – 2026-10-27
 
 - Neu: Thermostate (`climate.*`) liefern zusätzliche aufzeichenbare Werte „Sollwert“ (`climate.x::temperature`) und „Heizanteil“ (`climate.x::heating`, Anteil der Zeit mit `hvac_action = heating` in %). Live, mit Historien-Import und in Formeln nutzbar (z. B. `sensor.buro - climate.buro::temperature`).

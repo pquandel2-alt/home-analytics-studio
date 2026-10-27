@@ -73,6 +73,7 @@ class EntityInfo:
     rolled_1h: int | None
     retention_days: int | None
     max_rate: float | None = None
+    name: str | None = None
 
 
 class Store:
@@ -103,6 +104,7 @@ class Store:
             unit=r["unit"], source_unit=r["source_unit"], last_ts=r["last_ts"], last_value=r["last_value"],
             rolled_5m=r["rolled_5m"], rolled_1h=r["rolled_1h"], retention_days=r["retention_days"],
             max_rate=r["max_rate"] if "max_rate" in r.keys() else None,
+            name=r["name"],
         )
 
     def get(self, entity_id: str) -> EntityInfo | None:
@@ -217,6 +219,50 @@ class Store:
         conn.execute(text("DELETE FROM stats_5m WHERE entity_ref=:e AND ts>=:s"), {"e": entity_ref, "s": start - 300})
         conn.execute(text("DELETE FROM stats_1h WHERE entity_ref=:e AND ts>=:s AND source='local'"),
                      {"e": entity_ref, "s": start - 3600})
+
+    def split_history(self, entity_id: str, at: float, archive_id: str, archive_name: str | None = None) -> dict:
+        """Move all data before ``at`` into a new (not recorded) archive series.
+
+        Used when a device was moved to another room or replaced: the original entity keeps
+        only data from ``at`` on, the old data stays available under ``archive_id``."""
+        info = self.get(entity_id)
+        if info is None:
+            raise KeyError("Entität nicht gefunden")
+        if self.get(archive_id) is not None:
+            raise ValueError(f"Archiv '{archive_id}' existiert bereits")
+        at_ms = int(at * 1000)
+        cut5 = int(at // 300 * 300)
+        cut1 = int(at // 3600 * 3600)
+        with self.db.write() as conn:
+            row = conn.execute(text("SELECT * FROM entities WHERE id=:e"), {"e": info.id}).mappings().one()
+            res = conn.execute(
+                text("INSERT INTO entities(entity_id, recorded, kind, name, source_unit, unit, device_class, state_class, area,"
+                     " device, created_at, sample_count, notes, max_rate) VALUES (:eid, 0, :k, :n, :su, :u, :dc, :sc, :a, :d, :t, 0,"
+                     " :no, :mr)"),
+                {"eid": archive_id, "k": row["kind"], "n": archive_name or f"{row['name'] or entity_id} (Archiv)",
+                 "su": row["source_unit"], "u": row["unit"], "dc": row["device_class"], "sc": row["state_class"],
+                 "a": row["area"], "d": row["device"], "t": time.time(),
+                 "no": f"Historie von {entity_id} bis {time.strftime('%d.%m.%Y %H:%M', time.localtime(at))}", "mr": row["max_rate"]},
+            )
+            new_ref = int(res.lastrowid)
+            moved = conn.execute(text("UPDATE samples SET entity_ref=:n WHERE entity_ref=:o AND ts<:t"),
+                                 {"n": new_ref, "o": info.id, "t": at_ms}).rowcount or 0
+            # rollups: complete buckets before the cut move, the bucket containing the cut is recomputed
+            conn.execute(text("UPDATE stats_5m SET entity_ref=:n WHERE entity_ref=:o AND ts<:c"), {"n": new_ref, "o": info.id, "c": cut5})
+            conn.execute(text("UPDATE stats_1h SET entity_ref=:n WHERE entity_ref=:o AND ts<:c"), {"n": new_ref, "o": info.id, "c": cut1})
+            conn.execute(text("DELETE FROM stats_5m WHERE entity_ref=:o AND ts>=:c AND ts<:c2"), {"o": info.id, "c": cut5, "c2": cut5 + 300})
+            conn.execute(text("DELETE FROM stats_1h WHERE entity_ref=:o AND ts>=:c AND ts<:c2"), {"o": info.id, "c": cut1, "c2": cut1 + 3600})
+            # a gap marker so the old value is not carried into the new location
+            conn.execute(text("INSERT OR IGNORE INTO samples(entity_ref, ts, value) VALUES (:e, :t, NULL)"), {"e": info.id, "t": at_ms})
+            conn.execute(text("UPDATE entities SET rolled_5m=MIN(COALESCE(rolled_5m, :c), :c), rolled_1h=MIN(COALESCE(rolled_1h, :c1), :c1),"
+                              " recording_since=:a WHERE id=:e"), {"c": cut5, "c1": cut1, "a": at, "e": info.id})
+            conn.execute(text("UPDATE entities SET rolled_5m=:c, rolled_1h=:c1 WHERE id=:e"), {"c": cut5, "c1": cut1, "e": new_ref})
+            self._refresh_entity_stats(conn, info.id)
+            self._refresh_entity_stats(conn, new_ref)
+        self._last_written.pop(info.id, None)
+        self.load_cache()
+        self.rollup(None, [entity_id])
+        return {"archive": archive_id, "moved_samples": moved}
 
     def delete_entity_data(self, entity_id: str, forget: bool = False) -> None:
         info = self._cache.get(entity_id)

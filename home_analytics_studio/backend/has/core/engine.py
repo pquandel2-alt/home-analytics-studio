@@ -61,7 +61,7 @@ class DataEngine:
         attrs = (st or {}).get("attributes") or {}
         if info is not None:
             return {"entity_id": entity_id, "kind": info.kind, "unit": info.unit or units.canonical_unit(attrs.get("unit_of_measurement")),
-                    "recorded": info.recorded, "name": attrs.get("friendly_name") or entity_id}
+                    "recorded": info.recorded, "name": attrs.get("friendly_name") or info.name or entity_id}
         src_unit = attrs.get("unit_of_measurement")
         return {"entity_id": entity_id, "kind": detect_kind(attrs.get("state_class"), attrs.get("device_class"), src_unit),
                 "unit": units.canonical_unit(src_unit), "recorded": False, "name": attrs.get("friendly_name") or entity_id}

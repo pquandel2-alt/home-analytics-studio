@@ -79,7 +79,7 @@ def _entity_rows(svc) -> list[dict]:
         row = rows.get(info.entity_id)
         if row is None:
             row = rows[info.entity_id] = {
-                "entity_id": info.entity_id, "domain": info.entity_id.split(".", 1)[0], "name": info.entity_id,
+                "entity_id": info.entity_id, "domain": info.entity_id.split(".", 1)[0], "name": info.name or info.entity_id,
                 "state": None, "numeric": True, "available": False, "unit": info.source_unit, "device_class": None,
                 "state_class": None, "icon": None, "area": None, "device": None, "last_changed": None,
                 "kind_auto": info.kind, "in_ha": False, "hidden": False,
@@ -189,6 +189,25 @@ async def patch_entity(entity_id: str, body: EntityPatch, request: Request, _: P
     if body.kind is not None:
         await asyncio.to_thread(svc.store.rollup, None, [entity_id])
     return {"entity_id": info.entity_id, "kind": info.kind}
+
+
+class SplitBody(BaseModel):
+    at: float  # epoch seconds
+    archive_name: str | None = None
+
+
+@router.post("/entities/{entity_id}/split")
+async def split_history(entity_id: str, body: SplitBody, request: Request, _: Principal = Depends(admin)) -> dict:
+    """Device moved / replaced: move data before ``at`` into an archive series."""
+    svc = services(request)
+    await asyncio.to_thread(svc.store.flush)
+    archive_id = f"{entity_id}::archiv_{time.strftime('%Y%m%d', time.localtime(body.at))}"
+    try:
+        return await asyncio.to_thread(svc.store.split_history, entity_id, body.at, archive_id, body.archive_name)
+    except KeyError as err:
+        raise HTTPException(404, str(err)) from err
+    except ValueError as err:
+        raise HTTPException(400, str(err)) from err
 
 
 @router.delete("/entities/{entity_id}/data")

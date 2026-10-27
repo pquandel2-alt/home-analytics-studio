@@ -385,8 +385,8 @@ class HAClient:
         history of their base entity (requested with full attributes)."""
         from . import virtual
 
-        virt = [e for e in entity_ids if virtual.is_virtual(e)]
-        real = [e for e in entity_ids if not virtual.is_virtual(e)]
+        virt = [e for e in entity_ids if virtual.is_virtual(e) and virtual.definition(e)]
+        real = [e for e in entity_ids if not virtual.is_virtual(e)]  # archives (no definition) are skipped
         out: dict[str, list[tuple[float, Any, dict]]] = {}
         if real:
             out.update(await self._history(real, start, end, minimal=True))
