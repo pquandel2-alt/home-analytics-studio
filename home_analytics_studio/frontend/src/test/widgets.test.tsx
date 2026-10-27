@@ -1,7 +1,7 @@
 import { render, screen } from '@testing-library/react'
 import { describe, expect, it } from 'vitest'
 import { builderToFormula } from '../pages/Metrics'
-import { axisNumber } from '../widgets/charts'
+import { axisNumber, localHour } from '../widgets/charts'
 import { formatNumber, formatPct, formatValue } from '../utils/format'
 import { WIDGETS, widgetDef } from '../widgets/registry'
 import { renderMarkdown } from '../widgets/other'
@@ -34,6 +34,13 @@ describe('widget registry', () => {
     expect(def.requests({ ...def.defaults, counterMode: 'delta', sources: [src] })[0].source.stat).toBe('auto')
     expect(def.requests({ ...def.defaults, sources: [{ ...src, stat: 'max' }] })[0].source.stat).toBe('max')
     expect(widgetDef('bar')!.requests({ sources: [src] })[0].source.stat).toBeUndefined()
+  })
+
+  it('heatmap hour is numeric in German locale and respects time zones', () => {
+    const ts = Date.UTC(2026, 9, 27, 17, 30) / 1000 // 17:30 UTC
+    expect(localHour(ts, 'Europe/Berlin')).toBe(18)
+    expect(localHour(ts, 'UTC')).toBe(17)
+    expect(localHour(Date.UTC(2026, 9, 27, 23, 0) / 1000, 'Europe/Berlin')).toBe(0)
   })
 
   it('formats axis labels without trailing zeros', () => {

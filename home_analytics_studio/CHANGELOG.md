@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.0.6 – 2026-10-27
+
+- Fix: Heatmap (Stunde × Tag) zeichnete keine Zellen. Die Stunde wurde aus dem deutschen Zeitformat („18 Uhr“) gelesen und ergab keine Zahl.
+- Gauge-Skala im deutschen Zahlenformat.
+- KPI-Karte „Woche“: Verlauf stündlich statt nur ein Punkt pro Tag.
+
 ## 1.0.5 – 2026-10-27
 
 - Fix: Kacheln verschoben sich nach „Fertig“. Der Editor wählte das Layout nach der Fensterbreite, die Ansicht nach der Breite der Arbeitsfläche (ohne Navigation) – auf großen Monitoren wurde so ein anderes Layout bearbeitet als angezeigt. Der Editor bearbeitet jetzt immer das gerade angezeigte Layout.

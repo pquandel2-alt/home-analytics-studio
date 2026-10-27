@@ -222,7 +222,7 @@ export const WIDGETS: WidgetDef[] = [
       const s = sourcesOf(cfg)[0]
       if (!s) return []
       const range = { day: 'today', week: 'this_week', month: 'this_month', year: 'this_year' }[cfg.period as string] || 'today'
-      const interval = { day: '1h', week: '1d', month: '1d', year: '1mo' }[cfg.period as string] || '1h'
+      const interval = { day: '1h', week: '1h', month: '1d', year: '1mo' }[cfg.period as string] || '1h'
       const reqs: DataRequest[] = [{ kind: 'compare', source: s, period: cfg.period || 'day', key: 'cmp' }]
       if (cfg.sparkline !== false) reqs.push({ kind: 'series', source: s, range, interval, key: 'spark' })
       return reqs

@@ -153,6 +153,12 @@ def _steps(page, browser, errors: list[str]) -> int:
         page.click("button:has-text('Fertig')")
         page.wait_for_timeout(3000)
         page.screenshot(path=str(SHOTS / "04_dashboard.png"), full_page=True)
+        # the heatmap must actually draw cells (regression 1.0.6: "18 Uhr" -> NaN hour)
+        colors = page.locator(".react-grid-item", has_text="Heatmap").locator("canvas").first.evaluate("""c => {
+            const d = c.getContext('2d').getImageData(0, 0, c.width, c.height).data; const s = new Set()
+            for (let i = 0; i < d.length; i += 4 * 97) s.add(d[i] + ',' + d[i + 1] + ',' + d[i + 2])
+            return s.size }""")
+        assert colors > 40, f"heatmap draws no cells ({colors} colours)"
         page.set_viewport_size({"width": 390, "height": 844})
         page.wait_for_timeout(1500)
         page.screenshot(path=str(SHOTS / "05_mobile.png"))

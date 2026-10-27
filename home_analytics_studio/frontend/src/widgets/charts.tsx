@@ -22,6 +22,12 @@ import {
 } from './common'
 import type { WidgetProps } from './types'
 
+/** Local hour (0–23). Note: de-DE formatting yields "18 Uhr", so the numeric part is taken from formatToParts. */
+export function localHour(ts: number, timeZone?: string): number {
+  const parts = new Intl.DateTimeFormat('en-GB', { hour: '2-digit', hourCycle: 'h23', timeZone }).formatToParts(new Date(ts * 1000))
+  return Number(parts.find((p) => p.type === 'hour')?.value ?? 0) % 24
+}
+
 /** Compact axis label: no trailing zeros (0,8 instead of 0,800), thousands grouping for large values. */
 export function axisNumber(v: number, decimals?: number | null): string {
   if (decimals != null) return formatNumber(v, { decimals })
@@ -220,7 +226,7 @@ export function GaugeWidget({ cfg, results }: WidgetProps) {
           pointer: { show: !!cfg.pointer, width: 4, itemStyle: { color } },
           axisTick: { show: false },
           splitLine: { show: !!cfg.showTicks, length: 8, lineStyle: { color: theme.muted, width: 1 } },
-          axisLabel: { show: !!cfg.showTicks, color: theme.muted, fontSize: 10, distance: 18 },
+          axisLabel: { show: !!cfg.showTicks, color: theme.muted, fontSize: 10, distance: 18, formatter: (v: number) => axisNumber(v) },
           anchor: { show: false },
           title: { show: true, offsetCenter: [0, '58%'], color: theme.muted, fontSize: 12 },
           detail: {
@@ -290,7 +296,7 @@ export function HeatmapWidget({ cfg, results }: WidgetProps) {
   const option = useMemo(() => {
     if (!s) return null
     const dayFmt = new Intl.DateTimeFormat('de-DE', { weekday: 'short', day: '2-digit', month: '2-digit', timeZone: rt.timezone })
-    const hourFmt = new Intl.DateTimeFormat('de-DE', { hour: 'numeric', hourCycle: 'h23', timeZone: rt.timezone })
+
     const days: string[] = []
     const data: [number, number, number | null][] = []
     s.ts.forEach((t, i) => {
@@ -300,7 +306,7 @@ export function HeatmapWidget({ cfg, results }: WidgetProps) {
         days.push(d)
         di = days.length - 1
       }
-      const h = Number(hourFmt.format(new Date(t * 1000)))
+      const h = localHour(t, rt.timezone)
       data.push([h, di, s.values[i]])
     })
     const vals = data.map((d) => d[2]).filter((v): v is number => v != null)
