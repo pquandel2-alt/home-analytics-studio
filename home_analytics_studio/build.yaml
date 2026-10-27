@@ -1,0 +1,8 @@
+build_from:
+  amd64: python:3.12-alpine3.20
+  aarch64: python:3.12-alpine3.20
+labels:
+  org.opencontainers.image.title: Home Analytics Studio
+  org.opencontainers.image.description: Analytics & visualisation add-on for Home Assistant
+  org.opencontainers.image.source: https://github.com/pquandel2-alt/home-analytics-studio
+  org.opencontainers.image.licenses: MIT

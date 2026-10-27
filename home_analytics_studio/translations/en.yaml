@@ -1,0 +1,15 @@
+configuration:
+  log_level:
+    name: Log level
+    description: Verbosity of the add-on log.
+  base_url:
+    name: Base URL (reverse proxy)
+    description: Public address, e.g. https://analytics.example.lan – used for presentation links. Leave empty if not needed.
+  secure_cookies:
+    name: Secure cookies
+    description: Only send session cookies over HTTPS (enable when accessed exclusively via HTTPS / reverse proxy).
+  trust_proxy_headers:
+    name: Trust proxy headers
+    description: Evaluate X-Forwarded-For/-Proto of an upstream reverse proxy. Only enable when a proxy is in front.
+network:
+  8100/tcp: Direct LAN access (login required). Leave empty to disable direct access.

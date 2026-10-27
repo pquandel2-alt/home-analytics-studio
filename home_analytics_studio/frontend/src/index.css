@@ -1,0 +1,174 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --c-accent: 34 211 238;
+  --c-accent2: 168 85 247;
+  --c-bg: 11 16 32;
+  --c-surface: 18 26 46;
+  --c-elevated: 18 26 46;
+  --c-text: 230 237 247;
+  --c-muted: 139 152 176;
+  --c-border: 42 53 80;
+  --c-ok: 74 222 128;
+  --c-warn: 251 191 36;
+  --c-bad: 248 113 113;
+  --surface-alpha: 0.9;
+  --border-alpha: 0.7;
+  --border-width: 1px;
+  --glass-blur: 0px;
+  --radius: 16px;
+  --shadow: 0 4px 14px rgba(0, 0, 0, 0.18);
+  --font: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  --font-scale: 1;
+  --title-weight: 600;
+  --bg-gradient: none;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  font-family: var(--font);
+  background: rgb(var(--c-bg));
+  color: rgb(var(--c-text));
+  -webkit-font-smoothing: antialiased;
+}
+
+* {
+  scrollbar-width: thin;
+  scrollbar-color: rgb(var(--c-border)) transparent;
+}
+
+.app-bg {
+  background-color: rgb(var(--c-bg));
+  background-image: var(--bg-gradient);
+  background-attachment: fixed;
+}
+
+.panel {
+  background: rgb(var(--c-surface) / var(--surface-alpha));
+  border: var(--border-width) solid rgb(var(--c-border) / var(--border-alpha));
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  backdrop-filter: blur(var(--glass-blur));
+  -webkit-backdrop-filter: blur(var(--glass-blur));
+}
+
+.panel-flat {
+  background: rgb(var(--c-surface) / var(--surface-alpha));
+  border: 1px solid rgb(var(--c-border) / var(--border-alpha));
+  border-radius: calc(var(--radius) * 0.75);
+}
+
+.input {
+  @apply w-full rounded-lg border border-line/80 bg-bg/60 px-3 py-2 text-sm text-fg outline-none transition placeholder:text-muted/70 focus:border-accent focus:ring-2 focus:ring-accent/25;
+}
+
+.label {
+  @apply mb-1 block text-xs font-medium uppercase tracking-wide text-muted;
+}
+
+.glow-text {
+  text-shadow: 0 0 12px rgb(var(--c-accent) / 0.55);
+}
+
+.no-anim *,
+.no-anim *::before,
+.no-anim *::after {
+  animation: none !important;
+  transition: none !important;
+}
+
+@keyframes fade-in {
+  from { opacity: 0; transform: translateY(4px); }
+  to { opacity: 1; transform: none; }
+}
+.anim-fade { animation: fade-in 0.35s ease both; }
+
+@keyframes page-slide {
+  from { opacity: 0; transform: translateX(40px); }
+  to { opacity: 1; transform: none; }
+}
+@keyframes page-zoom {
+  from { opacity: 0; transform: scale(0.97); }
+  to { opacity: 1; transform: none; }
+}
+.trans-fade { animation: fade-in 0.6s ease both; }
+.trans-slide { animation: page-slide 0.6s ease both; }
+.trans-zoom { animation: page-zoom 0.6s ease both; }
+
+@keyframes flow-dash {
+  to { stroke-dashoffset: -24; }
+}
+.flow-line { stroke-dasharray: 6 6; animation: flow-dash 1s linear infinite; }
+.flow-line.reverse { animation-direction: reverse; }
+
+@keyframes pulse-dot {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.35; }
+}
+.pulse-dot { animation: pulse-dot 1.6s ease-in-out infinite; }
+
+/* ---------- react-grid-layout ---------- */
+.react-grid-layout { position: relative; transition: height 200ms ease; }
+.react-grid-item { transition: all 200ms ease; transition-property: left, top, width, height; }
+.react-grid-item.cssTransforms { transition-property: transform, width, height; }
+.react-grid-item.resizing { transition: none; z-index: 100; will-change: width, height; }
+.react-grid-item.react-draggable-dragging { transition: none; z-index: 100; will-change: transform; }
+.react-grid-item.dropping { visibility: hidden; }
+.react-grid-item.react-grid-placeholder {
+  background: rgb(var(--c-accent) / 0.18);
+  border: 2px dashed rgb(var(--c-accent) / 0.8);
+  border-radius: var(--radius);
+  opacity: 1;
+  transition-duration: 100ms;
+  z-index: 2;
+  user-select: none;
+}
+.react-grid-item > .react-resizable-handle {
+  position: absolute;
+  width: 18px;
+  height: 18px;
+  z-index: 5;
+}
+.react-grid-item > .react-resizable-handle::after {
+  content: '';
+  position: absolute;
+  right: 4px;
+  bottom: 4px;
+  width: 8px;
+  height: 8px;
+  border-right: 2px solid rgb(var(--c-accent));
+  border-bottom: 2px solid rgb(var(--c-accent));
+  opacity: 0.8;
+}
+.react-grid-item > .react-resizable-handle.react-resizable-handle-se { bottom: 0; right: 0; cursor: se-resize; }
+.react-grid-item > .react-resizable-handle.react-resizable-handle-e { top: 50%; right: 0; margin-top: -9px; cursor: e-resize; }
+.react-grid-item > .react-resizable-handle.react-resizable-handle-s { bottom: 0; left: 50%; margin-left: -9px; cursor: s-resize; }
+.react-grid-item > .react-resizable-handle.react-resizable-handle-e::after,
+.react-grid-item > .react-resizable-handle.react-resizable-handle-s::after { width: 6px; height: 6px; }
+.react-resizable-hide > .react-resizable-handle { display: none; }
+
+.editor-grid-bg {
+  background-image:
+    linear-gradient(to right, rgb(var(--c-border) / 0.35) 1px, transparent 1px),
+    linear-gradient(to bottom, rgb(var(--c-border) / 0.35) 1px, transparent 1px);
+}
+
+.widget-selected { outline: 2px solid rgb(var(--c-accent)); outline-offset: 2px; }
+
+.kiosk-cursor-hidden, .kiosk-cursor-hidden * { cursor: none !important; }
+
+.prose-widget h1 { font-size: 1.6em; font-weight: 700; margin: 0.2em 0; }
+.prose-widget h2 { font-size: 1.3em; font-weight: 650; margin: 0.2em 0; }
+.prose-widget h3 { font-size: 1.1em; font-weight: 600; margin: 0.2em 0; }
+.prose-widget p { margin: 0.35em 0; }
+.prose-widget ul { list-style: disc; padding-left: 1.2em; }
+.prose-widget a { color: rgb(var(--c-accent)); text-decoration: underline; }
+.prose-widget code { font-family: monospace; background: rgb(var(--c-border) / 0.4); padding: 0 4px; border-radius: 4px; }

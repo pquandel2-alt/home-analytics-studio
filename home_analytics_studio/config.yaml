@@ -1,0 +1,43 @@
+name: Home Analytics Studio
+version: "1.0.0"
+slug: home_analytics_studio
+description: Eigenständige Analyse- und Visualisierungsplattform mit eigener Langzeitdatenbank, Dashboard-Editor, Formel-Editor und automatischen Auswertungen (nur lesend).
+url: https://github.com/pquandel2-alt/home-analytics-studio
+arch:
+  - amd64
+  - aarch64
+init: false
+startup: application
+boot: auto
+homeassistant_api: true
+hassio_api: false
+ingress: true
+ingress_port: 8099
+ingress_stream: true
+panel_icon: mdi:chart-timeline-variant-shimmer
+panel_title: Analytics Studio
+ports:
+  8100/tcp: 8100
+ports_description:
+  8100/tcp: Direkter Zugriff im Netzwerk (Anmeldung erforderlich, leer lassen zum Deaktivieren)
+watchdog: http://[HOST]:[PORT:8099]/api/health
+backup: hot
+backup_pre: python3 -m has pre-backup
+backup_post: python3 -m has post-backup
+backup_exclude:
+  - "has.db"
+  - "has.db-wal"
+  - "has.db-shm"
+  - "*.restore"
+  - "*.recover"
+options:
+  log_level: info
+  base_url: ""
+  secure_cookies: false
+  trust_proxy_headers: false
+schema:
+  log_level: list(debug|info|warning|error)
+  base_url: str?
+  secure_cookies: bool
+  trust_proxy_headers: bool
+image: ghcr.io/pquandel2-alt/{arch}-home-analytics-studio

@@ -1,0 +1,15 @@
+configuration:
+  log_level:
+    name: Protokollstufe
+    description: Detailgrad der Add-on-Protokolle.
+  base_url:
+    name: Basis-URL (Reverse Proxy)
+    description: Öffentliche Adresse, z. B. https://analytics.example.lan – wird für Präsentationslinks verwendet. Leer lassen, wenn nicht benötigt.
+  secure_cookies:
+    name: Sichere Cookies
+    description: Sitzungscookies nur über HTTPS senden (aktivieren, wenn ausschließlich per HTTPS/Reverse Proxy zugegriffen wird).
+  trust_proxy_headers:
+    name: Proxy-Header vertrauen
+    description: X-Forwarded-For/-Proto eines vorgeschalteten Reverse Proxys auswerten. Nur aktivieren, wenn ein Proxy davorsteht.
+network:
+  8100/tcp: Direkter Zugriff im lokalen Netzwerk (Anmeldung erforderlich). Leer lassen, um den Direktzugriff zu deaktivieren.

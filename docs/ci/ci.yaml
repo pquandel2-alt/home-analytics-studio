@@ -1,0 +1,32 @@
+name: CI
+on: [push, pull_request]
+jobs:
+  backend:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: "3.12" }
+      - run: pip install -r home_analytics_studio/backend/requirements.txt -r requirements-dev.txt
+      - run: cd home_analytics_studio/backend && python -m pytest -q
+  frontend:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: "20" }
+      - run: cd home_analytics_studio/frontend && npm ci && npm run typecheck && npx vitest run && npx vite build
+  addon-build:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix: { arch: [amd64, aarch64] }
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/setup-qemu-action@v3
+      - uses: docker/setup-buildx-action@v3
+      - name: Build add-on image (${{ matrix.arch }})
+        run: |
+          PLATFORM=$([ "${{ matrix.arch }}" = "aarch64" ] && echo linux/arm64 || echo linux/amd64)
+          docker buildx build --platform $PLATFORM --build-arg BUILD_ARCH=${{ matrix.arch }} \
+            -t home-analytics-studio:${{ matrix.arch }} --load home_analytics_studio
+          docker run --rm --platform $PLATFORM --entrypoint python3 home-analytics-studio:${{ matrix.arch }} -c "import has.app; print('ok')"
