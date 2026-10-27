@@ -673,7 +673,10 @@ export const WIDGETS: WidgetDef[] = [
       const s = sourcesOf(cfg)[0]
       if (!s) return []
       const stats: [string, any][] = [['total', 'auto'], ['mean', 'mean'], ['min', 'min'], ['max', 'max'], ['last', 'last'], ['coverage', 'coverage']]
-      return stats.map(([k, st]) => ({ kind: 'scalar' as const, source: { ...s, stat: st }, range: cfg.range, key: k }))
+      return [
+        ...stats.map(([k, st]) => ({ kind: 'scalar' as const, source: { ...s, stat: st }, range: cfg.range, key: k })),
+        { kind: 'series' as const, source: { ...s, stat: 'auto' as const }, range: cfg.range, interval: '1d', key: 'daily' },
+      ]
     },
     Component: StatsWidget,
   },

@@ -1,7 +1,8 @@
 import { render, screen } from '@testing-library/react'
 import { describe, expect, it } from 'vitest'
 import { builderToFormula } from '../pages/Metrics'
-import { axisNumber, localHour } from '../widgets/charts'
+import { axisNumber, localHour, robustRange } from '../widgets/charts'
+import { Delta } from '../widgets/common'
 import { formatNumber, formatPct, formatValue } from '../utils/format'
 import { WIDGETS, widgetDef } from '../widgets/registry'
 import { renderMarkdown } from '../widgets/other'
@@ -61,6 +62,24 @@ describe('widget registry', () => {
     expect(costs.map((r) => r.key)).toEqual(['s0_today', 's0_this_month'])
     const flow = widgetDef('energy_flow')!.requests({ slots: { solar: src } })
     expect(flow[0]).toMatchObject({ key: 'slot_solar', source: { stat: 'current' } })
+  })
+})
+
+describe('colour scale and deltas', () => {
+  it('ignores single outliers in heatmap colour range', () => {
+    const vals = [...Array.from({ length: 100 }, (_, i) => 10 + (i % 20)), 2139]
+    const [lo, hi] = robustRange(vals)
+    expect(lo).toBe(10)
+    expect(hi).toBeLessThan(40)
+  })
+
+  it('shows an increase in red by default and in green when inverted', () => {
+    const { container, rerender } = render(<Delta pct={12} />)
+    expect(container.firstElementChild!.className).toContain('text-bad')
+    rerender(<Delta pct={12} invert />)
+    expect(container.firstElementChild!.className).toContain('text-ok')
+    rerender(<Delta pct={-5} />)
+    expect(container.firstElementChild!.className).toContain('text-ok')
   })
 })
 

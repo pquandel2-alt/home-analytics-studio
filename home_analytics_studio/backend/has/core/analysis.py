@@ -106,6 +106,7 @@ class AnalysisEngine:
         cur = await self._value(source, cur_start, int(now), now)
         prev_full = await self._value(source, prev_start, cur_start, now)
         prev_part = await self._value(source, prev_start, prev_same, now)
+        prev_cov = prev_part.get("coverage")
         return {
             "period": period,
             "label": cur_label,
@@ -115,6 +116,7 @@ class AnalysisEngine:
             "previous": prev_full.get("value"),
             "previous_coverage": prev_full.get("coverage"),
             "previous_same_elapsed": prev_part.get("value"),
+            "previous_same_elapsed_coverage": prev_cov,
             "change_pct": pct_change(cur.get("value"), prev_part.get("value")),
             "change_abs": None if cur.get("value") is None or prev_part.get("value") is None
             else cur["value"] - prev_part["value"],
@@ -162,7 +164,10 @@ class AnalysisEngine:
             c = comparisons[period]
             if c["current"] is None or c["previous_same_elapsed"] is None:
                 continue
-            incomplete = any(cv is not None and cv < MIN_COVERAGE for cv in (c["current_coverage"], c["previous_coverage"]))
+            covs = [cv for cv in (c["current_coverage"], c.get("previous_same_elapsed_coverage")) if cv is not None]
+            if any(cv < 0.5 for cv in covs):
+                continue  # not enough data on one side: no statement instead of a misleading one
+            incomplete = any(cv < MIN_COVERAGE for cv in covs)
             if mean_like and (unit or "") in ("°C", "°F", "K"):
                 diff = c["change_abs"]
                 if abs(diff) < 0.05:

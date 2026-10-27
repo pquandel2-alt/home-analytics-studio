@@ -108,7 +108,7 @@ export function KpiWidget({ cfg, results, width, height }: WidgetProps) {
     <div className="flex h-full flex-col gap-2">
       <div className="flex items-start justify-between gap-2">
         <BigValue value={cmp.current} unit={unit} fmt={fmt} size={scaleFont(width, height, 0.62)} className={theme.glow ? 'glow-text' : ''} />
-        <Delta pct={cmp.change_pct} invert={!!cfg.invertColors} />
+        <Delta pct={(cmp as any).previous_same_elapsed_coverage != null && (cmp as any).previous_same_elapsed_coverage < 0.5 ? null : cmp.change_pct} invert={!!cfg.invertColors} />
       </div>
       <div className="text-xs text-muted">
         {cmp.label} · {cmp.previous_label} bis jetzt: {formatNumber(cmp.previous_same_elapsed, fmt)} {unit}
@@ -144,7 +144,10 @@ export function ComparisonWidget({ cfg, results, width, height }: WidgetProps) {
   const fmt = fmtOf(cfg)
   if (!src) return <NeedsConfig />
   if (!a || !b) return <ErrorNote text={results.a?.error || results.b?.error} />
-  const pct = a.value != null && b.value != null && b.value !== 0 ? ((a.value - b.value) / Math.abs(b.value)) * 100 : null
+  const covA = a.coverage ?? 1
+  const covB = b.coverage ?? 1
+  const thin = Math.min(covA, covB) < 0.8
+  const pct = a.value != null && b.value != null && b.value !== 0 && Math.min(covA, covB) >= 0.5 ? ((a.value - b.value) / Math.abs(b.value)) * 100 : null
   const unit = unitOf(cfg, a.unit)
   const max = Math.max(Math.abs(a.value || 0), Math.abs(b.value || 0)) || 1
   const size = scaleFont(width, height, 0.45)
@@ -171,6 +174,11 @@ export function ComparisonWidget({ cfg, results, width, height }: WidgetProps) {
         <span>Veränderung</span>
         <Delta pct={pct} invert={!!cfg.invertColors} />
       </div>
+      {thin && (
+        <div className="text-[11px] text-warn">
+          Datenbasis unvollständig ({covA < 0.8 ? `A: ${Math.round(covA * 100)} %` : ''}{covA < 0.8 && covB < 0.8 ? ', ' : ''}{covB < 0.8 ? `B: ${Math.round(covB * 100)} %` : ''})
+        </div>
+      )}
     </div>
   )
 }
@@ -267,7 +275,7 @@ export function TrendWidget({ cfg, results, width, height }: WidgetProps) {
   if (!s || !stats) return <ErrorNote text={results.s0?.error} />
   const up = (stats.pct ?? 0) > 1
   const down = (stats.pct ?? 0) < -1
-  const good = cfg.invertColors ? down : up
+  const good = cfg.invertColors ? up : down
   const Icon = up ? TrendingUp : down ? TrendingDown : Minus
   const color = !up && !down ? theme.muted : good ? (theme.mode === 'dark' ? '#4ade80' : '#16a34a') : theme.mode === 'dark' ? '#f87171' : '#dc2626'
   return (

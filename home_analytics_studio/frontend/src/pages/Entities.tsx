@@ -111,6 +111,8 @@ function EntityDetail({ row, onClose, onChanged }: { row: EntityRow; onClose: ()
   const [detail, setDetail] = useState<any>(null)
   const [retention, setRetention] = useState<number | null>(row.retention_days)
   const [unit, setUnit] = useState(row.stored_unit || '')
+  const [maxRate, setMaxRate] = useState<number | null>((row as any).max_rate ?? null)
+  const isCounter = row.kind === 'counter' || row.kind === 'total' 
   useEffect(() => {
     api.get(`entities/${row.entity_id}`).then(setDetail).catch(() => undefined)
     api
@@ -156,12 +158,17 @@ function EntityDetail({ row, onClose, onChanged }: { row: EntityRow; onClose: ()
             <Field label="Gespeicherte Einheit" hint="Neue Werte werden in diese Einheit umgerechnet (z. B. Wh → kWh)">
               <Input value={unit} onChange={(e) => setUnit(e.target.value)} />
             </Field>
+            {isCounter && (
+              <Field label={`Max. plausibler Verbrauch pro Stunde (${row.stored_unit || row.unit || ''})`} hint="Größere Sprünge (z. B. nach Ausfall des Lesekopfs oder Zählertausch) werden bei Auswertungen ignoriert. Leer = keine Grenze. Rohdaten bleiben unverändert.">
+                <NumberInput value={maxRate} min={0} onChange={setMaxRate} placeholder="keine Grenze" />
+              </Field>
+            )}
             <div className="md:col-span-2">
               <Button
                 variant="primary"
                 onClick={async () => {
                   try {
-                    await api.patch(`entities/${row.entity_id}`, { retention_days: retention, unit })
+                    await api.patch(`entities/${row.entity_id}`, { retention_days: retention, unit, ...(isCounter ? { max_rate: maxRate } : {}) })
                     toast.ok('Gespeichert')
                     onChanged()
                   } catch (e) {

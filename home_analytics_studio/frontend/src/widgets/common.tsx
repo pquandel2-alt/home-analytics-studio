@@ -150,7 +150,8 @@ export function firstError(results: Record<string, BatchResult>): string | undef
 export function Delta({ pct, invert, className }: { pct: number | null | undefined; invert?: boolean; className?: string }) {
   if (pct == null || !Number.isFinite(pct)) return <span className={clsx('text-xs text-muted', className)}>–</span>
   const up = pct > 0
-  const good = invert ? !up : up
+  // default: an increase is bad (consumption, costs); invert -> an increase is good
+  const good = invert ? up : !up
   return (
     <span className={clsx('inline-flex items-center gap-0.5 rounded-md px-1.5 py-0.5 text-xs font-semibold tabular-nums', Math.abs(pct) < 0.05 ? 'bg-fg/10 text-muted' : good ? 'bg-ok/15 text-ok' : 'bg-bad/15 text-bad', className)}>
       {up ? '▲' : pct < 0 ? '▼' : '■'} {formatNumber(Math.abs(pct), { decimals: Math.abs(pct) < 10 ? 1 : 0 })} %

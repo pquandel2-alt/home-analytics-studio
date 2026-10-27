@@ -1,5 +1,14 @@
 # Changelog
 
+## 1.0.7 – 2026-10-27
+
+- Neu: Plausibilitätsgrenze je Zähler („max. Verbrauch pro Stunde“, Entitäten → Details). Unplausible Sprünge – z. B. nach Ausfall des Lesekopfs oder Zählertausch – werden bei allen Auswertungen ignoriert; rückwirkend und umkehrbar, Rohdaten bleiben unverändert.
+- Analysen: keine Vergleichsaussagen mehr, wenn der Vergleichszeitraum zu wenig Daten hat (vorher z. B. „+127.976 %“).
+- Vergleichskarte warnt bei unvollständiger Datenbasis; KPI-Karte zeigt dann keine Prozentänderung.
+- Farblogik korrigiert: Ein Anstieg wird standardmäßig rot dargestellt (Verbrauch/Kosten), mit „Anstieg ist gut“ grün – wie im Editor beschrieben.
+- Statistikübersicht für Zähler: Ø pro Tag, niedrigster und höchster Tag statt leerer Mittelwerte.
+- Heatmaps: robuste Farbskala, einzelne Ausreißer machen die Darstellung nicht mehr unbrauchbar.
+
 ## 1.0.6 – 2026-10-27
 
 - Fix: Heatmap (Stunde × Tag) zeichnete keine Zellen. Die Stunde wurde aus dem deutschen Zeitformat („18 Uhr“) gelesen und ergab keine Zahl.

@@ -22,6 +22,16 @@ import {
 } from './common'
 import type { WidgetProps } from './types'
 
+/** Robust colour range: 2nd–98th percentile, so a single outlier does not flatten the scale. */
+export function robustRange(vals: number[]): [number, number] {
+  if (!vals.length) return [0, 1]
+  const v = [...vals].sort((a, b) => a - b)
+  const q = (p: number) => v[Math.min(v.length - 1, Math.max(0, Math.round(p * (v.length - 1))))]
+  const lo = v.length > 20 ? q(0.02) : v[0]
+  const hi = v.length > 20 ? q(0.98) : v[v.length - 1]
+  return hi > lo ? [lo, hi] : [v[0], v[v.length - 1] > v[0] ? v[v.length - 1] : v[0] + 1]
+}
+
 /** Local hour (0–23). Note: de-DE formatting yields "18 Uhr", so the numeric part is taken from formatToParts. */
 export function localHour(ts: number, timeZone?: string): number {
   const parts = new Intl.DateTimeFormat('en-GB', { hour: '2-digit', hourCycle: 'h23', timeZone }).formatToParts(new Date(ts * 1000))
@@ -318,8 +328,8 @@ export function HeatmapWidget({ cfg, results }: WidgetProps) {
       xAxis: { type: 'category', data: Array.from({ length: 24 }, (_, i) => String(i)), splitArea: { show: false }, ...axisStyle(theme, cfg), splitLine: { show: false } },
       yAxis: { type: 'category', data: days, ...axisStyle(theme, cfg), splitLine: { show: false } },
       visualMap: {
-        min: vals.length ? Math.min(...vals) : 0,
-        max: vals.length ? Math.max(...vals) : 1,
+        min: robustRange(vals)[0],
+        max: robustRange(vals)[1],
         calculable: true,
         orient: 'horizontal',
         left: 'center',
@@ -355,8 +365,8 @@ export function CalendarHeatmapWidget({ cfg, results, width }: WidgetProps) {
       ...chartBase(theme, cfg),
       tooltip: { ...chartBase(theme, cfg).tooltip, trigger: 'item', formatter: (p: any) => `${p.value[0]}<br/><b>${formatNumber(p.value[1], fmt)} ${unitOf(cfg, s.unit)}</b>` },
       visualMap: {
-        min: vals.length ? Math.min(...vals) : 0,
-        max: vals.length ? Math.max(...vals) : 1,
+        min: robustRange(vals)[0],
+        max: robustRange(vals)[1],
         show: cfg.showLegend !== false,
         orient: 'horizontal',
         left: 'center',

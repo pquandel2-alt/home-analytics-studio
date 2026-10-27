@@ -118,27 +118,37 @@ export function StatsWidget({ cfg, results }: WidgetProps) {
   const get = (k: string) => (results[k]?.ok ? (results[k].data as ScalarResult) : null)
   const unit = unitOf(cfg, get('mean')?.unit || get('total')?.unit)
   const cov = get('coverage')?.value
+  const daily = seriesOk(results.daily)
+  const isCounter = !!daily && daily.kind !== 'measurement' && daily.kind !== 'metric'
+  // counters: statistics per (complete) day instead of time weighted readings
+  const days = isCounter && daily ? daily.values.filter((v, i) => v != null && (daily.coverage?.[i] ?? 1) >= 0.8) as number[] : []
+  const dayVal: Record<string, number | null> = {
+    mean: days.length ? days.reduce((a, b) => a + b, 0) / days.length : null,
+    min: days.length ? Math.min(...days) : null,
+    max: days.length ? Math.max(...days) : null,
+  }
   const items = [
-    { k: 'total', label: 'Summe / Verbrauch' },
-    { k: 'mean', label: 'Durchschnitt' },
-    { k: 'min', label: 'Minimum' },
-    { k: 'max', label: 'Maximum' },
-    { k: 'last', label: 'Letzter Wert' },
+    { k: 'total', label: isCounter ? 'Verbrauch gesamt' : 'Summe / Verbrauch' },
+    { k: 'mean', label: isCounter ? 'Ø pro Tag' : 'Durchschnitt' },
+    { k: 'min', label: isCounter ? 'Niedrigster Tag' : 'Minimum' },
+    { k: 'max', label: isCounter ? 'Höchster Tag' : 'Maximum' },
+    { k: 'last', label: isCounter ? 'Zählerstand' : 'Letzter Wert' },
   ].filter((i) => results[i.k])
+  const valueOf = (k: string) => (isCounter && k in dayVal ? dayVal[k] : get(k)?.value)
   return (
     <div className="grid h-full grid-cols-2 content-center gap-2">
       {items.map((i) => (
         <div key={i.k} className="rounded-lg border border-line/40 bg-fg/[0.03] p-2.5">
           <div className="text-[11px] uppercase tracking-wider text-muted">{i.label}</div>
           <div className="text-lg font-semibold tabular-nums">
-            {formatNumber(get(i.k)?.value, fmt)} <span className="text-xs text-muted">{unit}</span>
+            {formatNumber(valueOf(i.k), fmt)} <span className="text-xs text-muted">{unit}</span>
           </div>
         </div>
       ))}
       <div className="rounded-lg border border-line/40 bg-fg/[0.03] p-2.5">
-        <div className="text-[11px] uppercase tracking-wider text-muted">Messwerte / Abdeckung</div>
+        <div className="text-[11px] uppercase tracking-wider text-muted">{isCounter ? 'Tage / Abdeckung' : 'Messwerte / Abdeckung'}</div>
         <div className="text-lg font-semibold tabular-nums">
-          {formatNumber(get('mean')?.count ?? get('total')?.count ?? null, { decimals: 0 })}{' '}
+          {formatNumber(isCounter ? days.length : get('mean')?.count ?? get('total')?.count ?? null, { decimals: 0 })}{' '}
           <span className="text-xs text-muted">{cov != null ? `· ${formatNumber(cov * 100, { decimals: 0 })} %` : ''}</span>
         </div>
       </div>

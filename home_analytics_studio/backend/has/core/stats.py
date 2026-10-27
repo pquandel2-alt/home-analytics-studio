@@ -91,6 +91,7 @@ class SeriesState:
 
     value: float | None = None  # value in effect at range start (None = gap / unknown)
     baseline: float | None = None  # last known counter reading
+    last_ts: float | None = None  # time (s) of that reading
 
 
 def compute_buckets(
@@ -99,6 +100,7 @@ def compute_buckets(
     kind: str,
     state: SeriesState | None = None,
     until: int | None = None,
+    max_rate: float | None = None,
 ) -> list[BucketStats]:
     """Compute statistics for consecutive buckets.
 
@@ -109,6 +111,7 @@ def compute_buckets(
     state = state or SeriesState()
     cur_val = state.value
     baseline = state.baseline
+    last_t: float | None = state.last_ts
     out: list[BucketStats] = []
     if len(edges) < 2:
         return out
@@ -148,6 +151,9 @@ def compute_buckets(
                 _touch(bucket, v)
                 if kind != MEASUREMENT:
                     d, baseline = counter_step(baseline, v, kind)
+                    if max_rate and last_t is not None and d > max_rate * max(1 / 60, (t - last_t) / 3600):
+                        d = 0.0  # implausible jump (e.g. meter replaced / reader offline): ignored
+                    last_t = t
                     if baseline is not None:
                         delta += d
                         has_delta = True
@@ -173,9 +179,10 @@ def _touch(bucket: BucketStats, v: float) -> None:
     bucket.max = v if bucket.max is None else max(bucket.max, v)
 
 
-def combine(rows: Iterable[dict], edges: Sequence[int]) -> list[BucketStats]:
+def combine(rows: Iterable[dict], edges: Sequence[int], max_delta: float | None = None) -> list[BucketStats]:
     """Combine finer stat rows (dicts with ts/mean/min/max/first/last/delta/count/covered)
-    into coarser buckets defined by ``edges``. Rows must be sorted by ts."""
+    into coarser buckets defined by ``edges``. Rows must be sorted by ts.
+    ``max_delta``: deltas of a single row above this value are ignored (implausible jumps)."""
     out = [BucketStats(ts=edges[i], end=edges[i + 1]) for i in range(len(edges) - 1)]
     if not out:
         return out
@@ -205,7 +212,10 @@ def combine(rows: Iterable[dict], edges: Sequence[int]) -> list[BucketStats]:
         if row.get("last") is not None:
             b.last = row["last"]
         if row.get("delta") is not None:
-            b.delta = (b.delta or 0.0) + row["delta"]
+            d = row["delta"]
+            if max_delta is not None and d > max_delta:
+                d = 0.0
+            b.delta = (b.delta or 0.0) + d
         b.count += int(row.get("count") or 0)
     for b in out:
         if b._mcov > 0:

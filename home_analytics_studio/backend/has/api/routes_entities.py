@@ -26,6 +26,7 @@ class EntityPatch(BaseModel):
     retention_days: int | None = -1
     unit: str | None = None
     notes: str | None = None
+    max_rate: float | None = -1
 
 
 def _entity_rows(svc) -> list[dict]:
@@ -71,7 +72,7 @@ def _entity_rows(svc) -> list[dict]:
         row.update({
             "recorded": info.recorded, "kind": info.kind, "samples": st.get("samples", 0), "bytes": st.get("bytes", 0),
             "rows_1h": st.get("rows_1h", 0), "last_ts": info.last_ts, "last_value": info.last_value,
-            "stored_unit": info.unit, "retention_days": info.retention_days,
+            "stored_unit": info.unit, "retention_days": info.retention_days, "max_rate": info.max_rate,
         })
     return sorted(rows.values(), key=lambda r: (not r["recorded"], r["entity_id"]))
 
@@ -166,7 +167,7 @@ async def get_entity(entity_id: str, request: Request, _: Principal = Depends(vi
 async def patch_entity(entity_id: str, body: EntityPatch, request: Request, _: Principal = Depends(editor)) -> dict:
     svc = services(request)
     try:
-        info = await asyncio.to_thread(svc.store.configure, entity_id, body.kind, body.retention_days, body.unit, body.notes)
+        info = await asyncio.to_thread(svc.store.configure, entity_id, body.kind, body.retention_days, body.unit, body.notes, body.max_rate)
     except ValueError as err:
         raise HTTPException(400, str(err)) from err
     if body.kind is not None:

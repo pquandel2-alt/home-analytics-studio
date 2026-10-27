@@ -72,6 +72,7 @@ class EntityInfo:
     rolled_5m: int | None
     rolled_1h: int | None
     retention_days: int | None
+    max_rate: float | None = None
 
 
 class Store:
@@ -101,6 +102,7 @@ class Store:
             id=r["id"], entity_id=r["entity_id"], recorded=bool(r["recorded"]), kind=kind,
             unit=r["unit"], source_unit=r["source_unit"], last_ts=r["last_ts"], last_value=r["last_value"],
             rolled_5m=r["rolled_5m"], rolled_1h=r["rolled_1h"], retention_days=r["retention_days"],
+            max_rate=r["max_rate"] if "max_rate" in r.keys() else None,
         )
 
     def get(self, entity_id: str) -> EntityInfo | None:
@@ -174,7 +176,7 @@ class Store:
         return n
 
     def configure(self, entity_id: str, kind: str | None = None, retention_days: int | None = -1,
-                  unit: str | None = None, notes: str | None = None) -> EntityInfo:
+                  unit: str | None = None, notes: str | None = None, max_rate: float | None = -1) -> EntityInfo:
         info = self.ensure_entity(entity_id)
         sets, params = [], {"id": info.id}
         if kind is not None:
@@ -191,6 +193,11 @@ class Store:
         if notes is not None:
             sets.append("notes=:no")
             params["no"] = notes
+        if max_rate != -1:
+            if max_rate is not None and max_rate <= 0:
+                raise ValueError("Grenzwert muss größer als 0 sein")
+            sets.append("max_rate=:mr")
+            params["mr"] = max_rate
         if sets:
             with self.db.write() as conn:
                 conn.execute(text(f"UPDATE entities SET {', '.join(sets)} WHERE id=:id"), params)
@@ -345,10 +352,11 @@ class Store:
             {"e": entity_ref, "t": ts_s * 1000},
         ).first()
         base = conn.execute(
-            text("SELECT value FROM samples WHERE entity_ref=:e AND ts<:t AND value IS NOT NULL ORDER BY ts DESC LIMIT 1"),
+            text("SELECT value, ts FROM samples WHERE entity_ref=:e AND ts<:t AND value IS NOT NULL ORDER BY ts DESC LIMIT 1"),
             {"e": entity_ref, "t": ts_s * 1000},
         ).first()
-        return SeriesState(value=row[0] if row else None, baseline=base[0] if base else None)
+        return SeriesState(value=row[0] if row else None, baseline=base[0] if base else None,
+                           last_ts=base[1] / 1000.0 if base else None)
 
     def raw_samples(self, entity_ref: int, start_s: int, end_s: int, limit: int | None = None) -> list[tuple[int, float | None]]:
         with self.db.read() as conn:
@@ -357,13 +365,15 @@ class Store:
                 q += f" LIMIT {int(limit)}"
             return [(r[0], r[1]) for r in conn.execute(text(q), {"e": entity_ref, "a": start_s * 1000, "b": end_s * 1000})]
 
-    def _compute_from_raw(self, conn, info: EntityInfo, edges: list[int], until: int | None) -> list[BucketStats]:
+    def _compute_from_raw(self, conn, info: EntityInfo, edges: list[int], until: int | None,
+                          apply_limit: bool = True) -> list[BucketStats]:
         state = self._state_before(conn, info.id, edges[0])
         rows = conn.execute(
             text("SELECT ts, value FROM samples WHERE entity_ref=:e AND ts>=:a AND ts<:b ORDER BY ts"),
             {"e": info.id, "a": edges[0] * 1000, "b": edges[-1] * 1000},
         ).all()
-        return compute_buckets([(r[0], r[1]) for r in rows], edges, info.kind, state, until)
+        return compute_buckets([(r[0], r[1]) for r in rows], edges, info.kind, state, until,
+                               info.max_rate if apply_limit and info.kind != MEASUREMENT else None)
 
     # ------------------------------------------------------------------ rollups
 
@@ -396,7 +406,8 @@ class Store:
             if edges[-1] > end5:
                 edges = [e for e in edges if e <= end5]
             with self.db.write() as conn:
-                buckets = self._compute_from_raw(conn, info, edges, None)
+                # rollups store the unfiltered truth; plausibility limits apply at query time
+                buckets = self._compute_from_raw(conn, info, edges, None, apply_limit=False)
                 conn.execute(text("DELETE FROM stats_5m WHERE entity_ref=:e AND ts>=:a AND ts<:b"),
                              {"e": info.id, "a": edges[0], "b": edges[-1]})
                 payload = [_row(info.id, b) for b in buckets if _non_empty(b)]
@@ -514,7 +525,8 @@ class Store:
                         by_ts[bucket.ts] = _row(info.id, bucket)
                 rows = list(by_ts.values())
         rows.sort(key=lambda r: r["ts"])
-        return combine(rows, edges)
+        max_delta = info.max_rate * step / 3600 if info.max_rate and info.kind != MEASUREMENT else None
+        return combine(rows, edges, max_delta)
 
     def latest_value(self, info: EntityInfo) -> tuple[int | None, float | None]:
         return info.last_ts, info.last_value

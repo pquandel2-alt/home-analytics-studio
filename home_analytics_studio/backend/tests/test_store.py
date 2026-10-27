@@ -165,3 +165,24 @@ def test_disk_check_pauses_recording(store, settings):
     settings.update("storage", {"min_free_disk_mb": 0})
     store.check_disk()
     assert store.add_state("sensor.energy", "1", attrs, time.time())
+
+
+def test_plausibility_limit_ignores_jumps_and_is_reversible(store):
+    info, attrs = _record(store, eid="sensor.meter2")
+    now = time.time()
+    t = int(now // H * H) - 30 * H
+    rows = [((t + i * 3600) * 1000, 100.0 + i) for i in range(10)]           # 1 kWh/h
+    rows += [((t + 10 * 3600) * 1000, 2200.0)]                               # reader back after outage: +2091
+    rows += [((t + (11 + i) * 3600) * 1000, 2201.0 + i) for i in range(5)]
+    store.insert_samples(info.id, rows)
+    store.rollup(now)
+    rng = [t, t + 16 * H]
+    assert store.query_edges(store.get("sensor.meter2"), rng, now=now)[0].delta > 2000
+    store.configure("sensor.meter2", max_rate=20)
+    limited = store.query_edges(store.get("sensor.meter2"), rng, now=now)[0].delta
+    assert abs(limited - 14.0) < 1e-6   # 9 + 5 regular kWh, jump ignored
+    # long range served from hourly rollups is filtered as well
+    days = store.query_edges(store.get("sensor.meter2"), [t - 5 * 86400, t + 16 * H], now=now)[0].delta
+    assert abs(days - 14.0) < 1e-6
+    store.configure("sensor.meter2", max_rate=None)
+    assert store.query_edges(store.get("sensor.meter2"), rng, now=now)[0].delta > 2000

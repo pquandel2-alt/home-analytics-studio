@@ -99,6 +99,7 @@ entities = Table(
     Column("rolled_1h", Integer),
     Column("notes", Text),
     Column("raw_from", Integer),  # raw samples before this epoch second were purged
+    Column("max_rate", Float),  # counters: max plausible consumption per hour (larger jumps are ignored)
 )
 
 # Raw measurements. ts in epoch milliseconds (UTC). value NULL = unavailable marker.
@@ -240,10 +241,17 @@ def _m3_raw_from(conn: Connection) -> None:
         conn.execute(text("ALTER TABLE entities ADD COLUMN raw_from INTEGER"))
 
 
+def _m4_max_rate(conn: Connection) -> None:
+    cols = {r[1] for r in conn.execute(text("PRAGMA table_info(entities)"))}
+    if "max_rate" not in cols:
+        conn.execute(text("ALTER TABLE entities ADD COLUMN max_rate REAL"))
+
+
 MIGRATIONS: list[tuple[int, str, Migration]] = [
     (1, "initial schema", _m1_initial),
     (2, "secondary indexes", _m2_indexes),
     (3, "raw retention watermark", _m3_raw_from),
+    (4, "counter plausibility limit", _m4_max_rate),
 ]
 
 SCHEMA_VERSION = MIGRATIONS[-1][0]
