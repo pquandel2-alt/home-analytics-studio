@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.0.8 – 2026-10-27
+
+- Neu: Thermostate (`climate.*`) liefern zusätzliche aufzeichenbare Werte „Sollwert“ (`climate.x::temperature`) und „Heizanteil“ (`climate.x::heating`, Anteil der Zeit mit `hvac_action = heating` in %). Live, mit Historien-Import und in Formeln nutzbar (z. B. `sensor.buro - climate.buro::temperature`).
+
 ## 1.0.7 – 2026-10-27
 
 - Neu: Plausibilitätsgrenze je Zähler („max. Verbrauch pro Stunde“, Entitäten → Details). Unplausible Sprünge – z. B. nach Ausfall des Lesekopfs oder Zählertausch – werden bei allen Auswertungen ignoriert; rückwirkend und umkehrbar, Rohdaten bleiben unverändert.

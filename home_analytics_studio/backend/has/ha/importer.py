@@ -27,7 +27,7 @@ async def import_history(ha: HAClient, store: Store, entity_ids: list[str], star
     done = 0
     inserted = 0
     for eid in entity_ids:
-        info = store.ensure_entity(eid, (ha.states.get(eid) or {}).get("attributes"))
+        info = store.ensure_entity(eid, (ha.state_of(eid) or {}).get("attributes"))
         t = starts[eid]
         while t < end:
             t2 = min(end, t + HISTORY_CHUNK)
@@ -62,7 +62,7 @@ async def import_statistics(ha: HAClient, store: Store, entity_ids: list[str], s
             skipped.append(eid)
             done += max(1, int((end - start) // STATS_CHUNK) + 1)
             continue
-        info = store.ensure_entity(eid, (ha.states.get(eid) or {}).get("attributes"))
+        info = store.ensure_entity(eid, (ha.state_of(eid) or {}).get("attributes"))
         stat_unit = md.get("statistics_unit_of_measurement") or md.get("display_unit_of_measurement")
         target = info.unit or units.canonical_unit(stat_unit)
         conv = (lambda v: units.convert(v, stat_unit, target)) if stat_unit and target else (lambda v: v)

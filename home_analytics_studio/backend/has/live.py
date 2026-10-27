@@ -90,7 +90,7 @@ class LiveHub:
         if mtype == "subscribe":
             ids = [e for e in (msg.get("entities") or []) if isinstance(e, str)][:2000]
             client.entities.update(ids)
-            states = {e: slim_state(self.services.ha.states.get(e)) for e in ids}
+            states = {e: slim_state(self.services.ha.state_of(e)) for e in ids}
             self._enqueue(client, {"type": "states", "states": states})
         elif mtype == "unsubscribe":
             for e in msg.get("entities") or []:

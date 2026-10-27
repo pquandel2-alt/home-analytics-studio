@@ -9,6 +9,7 @@ from pydantic import BaseModel
 from ..core.auth import Principal
 from ..core.store import detect_kind, parse_state_value
 from ..core import units
+from ..ha import virtual
 from ..ha.importer import import_history, import_statistics
 from ..live import slim_state
 from .deps import admin, editor, services, share_read, viewer
@@ -59,6 +60,21 @@ def _entity_rows(svc) -> list[dict]:
             "recorded": False, "kind": "auto", "samples": 0, "bytes": 0, "last_ts": None, "last_value": None,
             "stored_unit": units.canonical_unit(unit), "retention_days": None,
         }
+    # virtual attribute series (thermostat set point / heating share)
+    for base in [e for e in list(rows) if virtual.virtual_ids(e)]:
+        for vid in virtual.virtual_ids(base):
+            st = svc.ha.state_of(vid)
+            if st is None:
+                continue
+            a = st["attributes"]
+            row = dict(rows[base])
+            row.update({
+                "entity_id": vid, "name": a["friendly_name"], "state": st["state"],
+                "numeric": st["state"] not in ("unavailable", "unknown"), "available": st["state"] != "unavailable",
+                "unit": a["unit_of_measurement"], "device_class": a.get("device_class"), "state_class": "measurement",
+                "kind_auto": "measurement", "stored_unit": a["unit_of_measurement"], "virtual": True,
+            })
+            rows[vid] = row
     for info in svc.store.known_entities():
         row = rows.get(info.entity_id)
         if row is None:
@@ -104,7 +120,7 @@ async def list_entities(request: Request, search: str | None = None, domain: str
 @router.post("/entities/record")
 async def set_recording(body: RecordBody, request: Request, _: Principal = Depends(editor)) -> dict:
     svc = services(request)
-    attrs = {e: (svc.ha.states.get(e) or {}).get("attributes") or {} for e in body.entity_ids}
+    attrs = {e: (svc.ha.state_of(e) or {}).get("attributes") or {} for e in body.entity_ids}
     # entities without any stored data get their history imported from Home Assistant
     fresh = [e for e in body.entity_ids if (svc.store.get(e) is None or svc.store.get(e).last_ts is None)]
     n = await asyncio.to_thread(svc.store.set_recording, body.entity_ids, body.recorded, attrs)
@@ -116,7 +132,7 @@ async def set_recording(body: RecordBody, request: Request, _: Principal = Depen
         for eid in body.entity_ids:
             area, device = svc.ha.area_of(eid)
             await asyncio.to_thread(svc.store.update_metadata, eid, attrs.get(eid) or {}, area, device)
-            st = svc.ha.states.get(eid)
+            st = svc.ha.state_of(eid)
             if st:
                 svc.store.add_state(eid, st.get("state"), st.get("attributes") or {}, now)
     else:
@@ -159,7 +175,7 @@ async def get_entity(entity_id: str, request: Request, _: Principal = Depends(vi
     if info:
         first, last = await asyncio.to_thread(svc.store.time_bounds, info)
         row["first_ts"], row["last_data_ts"] = first, last
-    row["attributes"] = (svc.ha.states.get(entity_id) or {}).get("attributes")
+    row["attributes"] = (svc.ha.state_of(entity_id) or {}).get("attributes")
     return row
 
 
@@ -197,4 +213,4 @@ async def raw(entity_id: str, request: Request, start: float, end: float, limit:
 async def states(body: dict, request: Request, _: Principal = Depends(share_read)) -> dict:
     svc = services(request)
     ids = body.get("entity_ids") or []
-    return {"states": {e: slim_state(svc.ha.states.get(e)) for e in ids[:2000]}}
+    return {"states": {e: slim_state(svc.ha.state_of(e)) for e in ids[:2000]}}

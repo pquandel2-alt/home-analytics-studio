@@ -138,3 +138,10 @@ def test_time_functions():
     c = ctx(2)
     assert fx.evaluate("HOURS()", c) == [1.0, 1.0]
     assert fx.evaluate("HOUR()", c) == [0.0, 1.0]
+
+
+def test_virtual_attribute_entities_in_formulas():
+    ents = {"climate.buro::temperature": [bucket(0, mean=21.0)], "sensor.buro": [bucket(0, mean=20.2)]}
+    c = ctx(1, ents, kinds={"climate.buro::temperature": "measurement", "sensor.buro": "measurement"})
+    assert fx.evaluate("sensor.buro - climate.buro::temperature", c) == [pytest.approx(-0.8)]
+    assert fx.evaluate("{climate.buro::temperature} + 1", c) == [22.0]

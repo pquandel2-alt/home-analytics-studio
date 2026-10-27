@@ -225,7 +225,7 @@ async def start_import(kind: str, body: dict, request: Request, _: Principal = D
         raise HTTPException(400, "Keine Entitäten gewählt")
     start, end = resolve_range(body.get("range") or {"last": "10d"}, svc.engine.tz())
     if body.get("record", True):
-        attrs = {e: (svc.ha.states.get(e) or {}).get("attributes") or {} for e in ids}
+        attrs = {e: (svc.ha.state_of(e) or {}).get("attributes") or {} for e in ids}
         await asyncio.to_thread(svc.store.set_recording, ids, True, attrs)
 
     async def job(handle):

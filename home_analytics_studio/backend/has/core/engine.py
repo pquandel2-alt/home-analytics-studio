@@ -55,7 +55,7 @@ class DataEngine:
 
     def entity_meta(self, entity_id: str) -> dict | None:
         info = self.store.get(entity_id)
-        st = self.ha.states.get(entity_id) if self.ha else None
+        st = self.ha.state_of(entity_id) if self.ha else None
         if info is None and st is None:
             return None
         attrs = (st or {}).get("attributes") or {}
@@ -177,7 +177,7 @@ class DataEngine:
                 raise SourceError(f"Unbekannte Entität '{eid}'")
             stat = source.get("stat") or "auto"
             if stat == "current":
-                st = self.ha.states.get(eid) if self.ha else None
+                st = self.ha.state_of(eid) if self.ha else None
                 if st is not None:
                     v = parse_state_value(st.get("state"))
                     if v is not None:

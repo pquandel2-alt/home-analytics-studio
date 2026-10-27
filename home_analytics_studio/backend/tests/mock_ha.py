@@ -183,7 +183,7 @@ class MockHA:
                     rows.append({"s": st, "a": attrs, "lu": start})
                 for i, (ts, st, attrs) in enumerate(inside):
                     row = {"s": st, "lu": ts}
-                    if not rows and i == 0:
+                    if (not rows and i == 0) or not msg.get("minimal_response", True):
                         row["a"] = attrs
                     rows.append(row)
                 if rows:

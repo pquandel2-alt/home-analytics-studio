@@ -9,6 +9,7 @@ from typing import Any, Callable
 from ..core.jobs import JobManager
 from ..core.store import Store
 from .client import HAClient, parse_ha_time
+from . import virtual
 from .importer import import_history
 
 log = logging.getLogger(__name__)
@@ -37,6 +38,14 @@ class Recorder:
     async def _on_state(self, entity_id: str, new: dict | None, old: dict | None) -> None:
         if self.live_publish:
             self.live_publish(entity_id, new)
+        for vid in virtual.virtual_ids(entity_id):
+            vinfo = self.store.get(vid)
+            vstate = virtual.synthetic_state(vid, new)
+            if self.live_publish:
+                self.live_publish(vid, vstate)
+            if vinfo is not None and vinfo.recorded and vstate is not None:
+                ts = parse_ha_time(vstate.get("last_updated")) or time.time()
+                self.store.add_state(vid, vstate["state"], vstate["attributes"], ts)
         info = self.store.get(entity_id)
         if info is None or not info.recorded:
             return
@@ -54,7 +63,7 @@ class Recorder:
             for e in self.store.recorded_entities() if e.last_ts and now - e.last_ts / 1000.0 > 90
         }
         for info in self.store.recorded_entities():
-            st = self.ha.states.get(info.entity_id)
+            st = self.ha.state_of(info.entity_id)
             if not st:
                 continue
             ts = parse_ha_time(st.get("last_updated")) or now
@@ -70,7 +79,7 @@ class Recorder:
 
     def sync_metadata(self) -> None:
         for info in self.store.known_entities():
-            st = self.ha.states.get(info.entity_id)
+            st = self.ha.state_of(info.entity_id)
             if not st:
                 continue
             area, device = self.ha.area_of(info.entity_id)

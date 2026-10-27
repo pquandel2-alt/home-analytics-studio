@@ -360,8 +360,17 @@ class HAClient:
 
     # ------------------------------------------------------------------ helpers
 
+    def state_of(self, entity_id: str) -> dict | None:
+        """State of a real entity, or a synthetic state for attribute-based virtual entities."""
+        from . import virtual
+
+        if virtual.is_virtual(entity_id):
+            return virtual.synthetic_state(entity_id, self.states.get(virtual.split(entity_id)[0]))
+        return self.states.get(entity_id)
+
     def area_of(self, entity_id: str) -> tuple[str | None, str | None]:
         """Return (area name, device name) via entity/device registry."""
+        entity_id = entity_id.split("::", 1)[0]
         ent = self.registry.entities.get(entity_id) or {}
         device = self.registry.devices.get(ent.get("device_id") or "") or {}
         area_id = ent.get("area_id") or device.get("area_id")
@@ -370,14 +379,36 @@ class HAClient:
         return area.get("name"), dev_name
 
     async def history(self, entity_ids: list[str], start: float, end: float) -> dict[str, list[tuple[float, Any, dict]]]:
-        """Raw state history: {entity_id: [(ts, state, attributes)]}."""
+        """Raw state history: {entity_id: [(ts, state, attributes)]}.
+
+        Virtual attribute entities (``climate.x::temperature``) are resolved from the
+        history of their base entity (requested with full attributes)."""
+        from . import virtual
+
+        virt = [e for e in entity_ids if virtual.is_virtual(e)]
+        real = [e for e in entity_ids if not virtual.is_virtual(e)]
+        out: dict[str, list[tuple[float, Any, dict]]] = {}
+        if real:
+            out.update(await self._history(real, start, end, minimal=True))
+        if virt:
+            bases = sorted({virtual.split(e)[0] for e in virt})
+            base_hist = await self._history(bases, start, end, minimal=False)
+            for e in virt:
+                base, attr = virtual.split(e)
+                d = virtual.definition(e) or {}
+                out[e] = [(ts, virtual.value_from(attr, st, attrs), {"unit_of_measurement": d.get("unit")})
+                          for ts, st, attrs in base_hist.get(base, [])]
+        return out
+
+    async def _history(self, entity_ids: list[str], start: float, end: float,
+                       minimal: bool) -> dict[str, list[tuple[float, Any, dict]]]:
         res = await self.call(
             "history/history_during_period",
             timeout=180,
             start_time=datetime.fromtimestamp(start, timezone.utc).isoformat(),
             end_time=datetime.fromtimestamp(end, timezone.utc).isoformat(),
             entity_ids=entity_ids,
-            minimal_response=True,
+            minimal_response=minimal,
             no_attributes=False,
             significant_changes_only=False,
             include_start_time_state=True,

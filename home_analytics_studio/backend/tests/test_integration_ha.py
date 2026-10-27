@@ -163,3 +163,31 @@ async def test_enabling_recording_imports_existing_history(env):
     # a day long before recording started now has data (from HA long-term statistics)
     day = await svc.engine.scalar({"type": "entity", "id": "sensor.meter"}, {"start": base + 5 * 86400, "end": base + 6 * 86400})
     assert day["value"] == pytest.approx(24.0)
+
+
+async def test_thermostat_setpoint_and_heating_share(env):
+    """Attribute based virtual series of climate entities: live recording, history import, query."""
+    svc, ha = env
+    now = time.time()
+    attrs = lambda sp, act: {"friendly_name": "Büro", "current_temperature": 20.0, "temperature": sp, "hvac_action": act}
+    ha.set_state("climate.buro", "heat", attrs(21.0, "heating"), now - 4 * 3600)
+    ha.set_state("climate.buro", "heat", attrs(21.0, "idle"), now - 3 * 3600)      # 1 h heating
+    ha.set_state("climate.buro", "heat", attrs(19.0, "idle"), now - 2 * 3600)      # set point lowered
+    vid_sp, vid_h = "climate.buro::temperature", "climate.buro::heating"
+    st = svc.ha.state_of(vid_sp)
+    assert st is None or st["attributes"]["unit_of_measurement"] == "°C"
+    await ha.push_state("climate.buro", "heat", attrs(19.0, "idle"))
+    assert await wait_for(lambda: svc.ha.state_of(vid_sp) is not None, 5)
+    assert svc.ha.state_of(vid_sp)["state"] == "19.0" and svc.ha.state_of(vid_h)["state"] == "0.0"
+    # history import of the virtual series
+    svc.store.set_recording([vid_sp, vid_h], True, {vid_sp: svc.ha.state_of(vid_sp)["attributes"], vid_h: svc.ha.state_of(vid_h)["attributes"]})
+    res = await import_history(svc.ha, svc.store, [vid_sp, vid_h], now - 5 * 3600, now)
+    assert res["inserted_samples"] >= 4
+    share = await svc.engine.scalar({"type": "entity", "id": vid_h}, {"start": now - 4 * 3600, "end": now - 2 * 3600})
+    assert share["value"] == pytest.approx(50.0, abs=1)      # heating 1 h of 2 h
+    sp = await svc.engine.series({"type": "entity", "id": vid_sp, "stat": "state"}, {"start": now - 4 * 3600, "end": now}, "1h")
+    assert [round(v) for v in sp["values"] if v is not None][:3] == [21, 21, 19]
+    # live attribute change is recorded
+    await ha.push_state("climate.buro", "heat", attrs(22.5, "heating"))
+    assert await wait_for(lambda: svc.store.get(vid_sp).last_value == 22.5, 5)
+    assert svc.store.get(vid_h).last_value == 100.0
