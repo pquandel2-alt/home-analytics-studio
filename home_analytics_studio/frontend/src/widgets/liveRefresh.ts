@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { api } from '../api/client'
 import { useLiveEntities } from '../api/live'
 import type { Source } from '../api/types'
+import { sceneSources } from './scene/engine'
 
 // entity dependencies of metrics (loaded once, also available to read-only displays)
 let metricDeps: Record<string, string[]> | null = null
@@ -27,6 +28,7 @@ const ENTITY_RE = /\{?\s*([a-z_][a-z0-9_]*\.[a-z0-9_]+(?:::[a-z0-9_]+)?)\s*\}?/g
 export function widgetEntities(cfg: Record<string, any>, deps: Record<string, string[]> | null): string[] {
   const out = new Set<string>()
   const srcs: Source[] = [...((cfg.sources as Source[]) || []), ...(Object.values(cfg.slots || {}) as Source[])]
+  if (cfg.template || cfg.labels) srcs.push(...sceneSources(cfg))
   for (const s of srcs) {
     if (!s?.id) continue
     if (s.type === 'entity') out.add(s.id)

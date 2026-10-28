@@ -22,7 +22,7 @@ sowie Backup- und Exportfunktionen mit. Es funktioniert vollständig lokal, ohne
 - **Formel-Editor** (visuell + Text) mit sicherem eigenem Interpreter, Validierung, Einheitenprüfung, rückwirkender Berechnung
 - **Analyse-Engine**: Vergleiche Tag/Woche/Monat/Jahr, Trends, Spitzen, Auffälligkeiten, Profile – ohne KI
 - **Dashboard-Builder**: Drag & Drop, Größenänderung, Ebenen, Ausrichtung, Undo/Redo, Copy/Paste, Autosave,
-  responsive Layouts (Smartphone bis TV), mehrere Seiten, 35 Widget-Typen
+  responsive Layouts (Smartphone bis TV), mehrere Seiten, 38 Widget-Typen (inkl. animierter Szenen: Haus mit Solaranlage, Wärmepumpe, eigener HTML/CSS-Code)
 - **Design**: 7 Presets (Modern Minimal, Dark Analytics, Futuristic Neon, Glass Dashboard, Energy Control Center, …), alles anpassbar
 - **ChatGPT-Export** (Prompt/Markdown/JSON, manuelle Übergabe) + optionale Ollama/OpenAI-kompatible Anbieter
 - **Präsentations-/Kioskmodus** mit schreibgeschützten Links

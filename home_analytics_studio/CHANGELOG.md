@@ -1,5 +1,15 @@
 # Changelog
 
+## 1.5.0 – 2026-10-28
+
+- **Neu: Animierte Szenen.** Drei neue Widgets:
+  - **Haus mit Solaranlage:** Sonne, PV-Module, Strommast, Batterie (Ladestand), Wallbox/E-Auto. Energieflüsse laufen als Punkte entlang der Leitungen – Tempo und Dicke folgen der Leistung, die Richtung dem Vorzeichen (Bezug/Einspeisung, Laden/Entladen). Hausverbrauch und Autarkie werden berechnet, wenn kein eigener Sensor da ist.
+  - **Wärmepumpe:** Außeneinheit mit Lüfter (dreht schneller bei höherer Stromaufnahme), Vor-/Rücklauf, Puffer, Heizkörper mit Wärmewellen, Warmwasserspeicher, Temperaturen, Betriebsart, COP aktuell und Arbeitszahl im Zeitraum.
+  - **Eigene Szene (HTML/SVG/CSS):** Werte per `{{name}}`, CSS-Variablen (`var(--name)`, `--name-dur`, `--name-play`), Klassen (`name-an`, `name-neg`), `data-show-if`. Berechnete Werte (z. B. `heat / power`) mit einem sicheren Formel-Rechner.
+- **Freie Werte:** beliebige Sensoren/Kennzahlen an beliebiger Stelle einer Szene, per Drag & Drop in der Editor-Vorschau platziert.
+- Nicht zugeordnete Teile einer Vorlage werden automatisch ausgeblendet; „Als eigenen Code bearbeiten“ erzeugt eine anpassbare Kopie.
+- **Sicherheit:** Szenen laufen in einem abgeschotteten Sandbox-Rahmen (eigener Ursprung, keine Netzwerkzugriffe, kein Zugriff auf Anmeldung, Home Assistant oder die Add-on-API). Eigenes JavaScript ist standardmäßig blockiert und nur optional zuschaltbar.
+
 ## 1.4.0 – 2026-10-28
 
 - **Echte Live-Aktualisierung aller Kacheln:** Diagramme, Tages-/Monatswerte, Kosten und Kennzahlen rechnen sofort neu, sobald sich einer der beteiligten Sensoren in Home Assistant ändert (bei Kennzahlen alle Sensoren der Formel). Vorher nur im Intervall (60 s). Entprellt, max. alle 5 s je Kachel; abschaltbar je Widget.

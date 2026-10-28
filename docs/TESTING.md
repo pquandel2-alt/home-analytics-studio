@@ -7,11 +7,12 @@ x86_64, Ubuntu 24.04, Python 3.12, Node 18, Docker mit BuildKit).
 
 | Bereich | Werkzeug | Ergebnis |
 |---|---|---|
-| Backend-Unit/DB/API/Integration | pytest (93 Tests) | **93 bestanden** |
-| Frontend (Editor-Store, Widgets, Formel-Builder, Formatierung, Markdown-Sicherheit) | vitest (19 Tests) | **19 bestanden** |
+| Backend-Unit/DB/API/Integration | pytest (107 Tests) | **107 bestanden** |
+| Frontend (Editor-Store, Widgets, Formel-Builder, Formatierung, Markdown-Sicherheit, Szenen-Rechner/Sandbox) | vitest (35 Tests) | **35 bestanden** |
 | TypeScript-Typprüfung | `tsc -b` | fehlerfrei |
 | Produktions-Build Frontend | `vite build` | erfolgreich |
 | Browser-End-to-End (Chromium/Playwright, gegen HA-Simulator) | `tests/e2e/ui_smoke.py` | **alle 14 Schritte erfolgreich, keine Konsolenfehler** |
+| Animierte Szenen (Live-Werte, Animation, Sandbox blockiert Skripte/Speicher, Drag & Drop freier Werte) | `tests/e2e/scene_widget.py` | **22 Prüfungen erfolgreich** (nur aktuelles Chromium; ältere TV-Browser nicht automatisiert getestet) |
 | Add-on-Image `amd64` | `docker build` (Alpine, nur Binär-Wheels) | erfolgreich, 155 MB |
 | Container-Start, Healthcheck, `/data`-Persistenz über Neustart, Direktport verlangt Anmeldung | manuell/Skript | erfolgreich |
 | Abhängigkeiten `aarch64` (musllinux-Wheels vorhanden) | `pip download --platform musllinux_*_aarch64` | alle verfügbar |

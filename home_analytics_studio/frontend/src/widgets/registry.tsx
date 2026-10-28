@@ -5,9 +5,11 @@ import {
   CalendarDays,
   ChartColumnStacked,
   Clock,
+  Code2,
   Coins,
   Columns2,
   Factory,
+  Fan,
   Gauge,
   GitCompareArrows,
   Grid3x3,
@@ -39,6 +41,9 @@ import { CalendarHeatmapWidget, CompareChartWidget, GaugeWidget, HeatmapWidget, 
 import { CostsWidget, DistributionWidget, EnergyFlowWidget, PowerEnergyCard, SelfConsumptionWidget } from './energy'
 import { ComparisonWidget, KpiWidget, MultiValueWidget, PercentWidget, TrendWidget, ValueWidget } from './kpi'
 import { AnalysisWidget, ClockWidget, HeadingWidget, HistoryWidget, ImageWidget, InfoWidget, StatsWidget, TableWidget, TextWidget } from './other'
+import { sceneRequests } from './scene/engine'
+import SceneEditor from './scene/SceneEditor'
+import { SceneWidget } from './scene/SceneWidget'
 import type { DataRequest, FieldDef, SlotDef, WidgetDef } from './types'
 
 // ------------------------------------------------------------------ request helpers
@@ -86,6 +91,26 @@ function slotReqs(cfg: Record<string, any>, slots: SlotDef[], range: any): DataR
 
 const liveOf = (cfg: Record<string, any>) =>
   [...sourcesOf(cfg), ...Object.values((cfg.slots as Record<string, Source>) || {})].filter((s) => s?.type === 'entity').map((s) => s.id)
+
+function sceneDef(type: string, label: string, category: WidgetDef['category'], icon: any, description: string, template: string): WidgetDef {
+  return {
+    type,
+    label,
+    category,
+    icon,
+    description,
+    defaultSize: { w: 12, h: 9 },
+    minSize: { w: 4, h: 3 },
+    defaults: { template, range: 'today', bind: {}, labels: [] },
+    sources: 'slots',
+    slots: [],
+    dataFields: { range: true },
+    fields: [],
+    requests: sceneRequests,
+    DataEditor: SceneEditor,
+    Component: SceneWidget,
+  }
+}
 
 // ------------------------------------------------------------------ shared field sets
 
@@ -551,6 +576,9 @@ export const WIDGETS: WidgetDef[] = [
     liveEntities: liveOf,
     Component: EnergyFlowWidget,
   },
+  sceneDef('scene_solar', 'Haus mit Solaranlage (animiert)', 'energy', Sun, 'Animierte Szene: Sonne, PV, Netz, Batterie, E-Auto mit Live-Werten', 'house_solar'),
+  sceneDef('scene_heatpump', 'Wärmepumpe (animiert)', 'energy', Fan, 'Animierte Anlage: Lüfter, Vorlauf/Rücklauf, Puffer, Warmwasser, COP', 'heat_pump'),
+  sceneDef('scene', 'Eigene animierte Szene (HTML/CSS)', 'other', Code2, 'Eigene Grafik mit HTML, SVG und CSS-Animationen, Werte per Platzhalter', 'custom'),
   powerCard('power', 'Stromverbrauch', PlugZap, 'Aktuelle Leistung, Tagesverbrauch und Verlauf'),
   {
     type: 'costs',

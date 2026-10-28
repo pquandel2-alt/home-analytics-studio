@@ -105,19 +105,55 @@ eingestellten Aggregation (Summe/Mittel/Letzter …) zusammengefasst.
 * Automatisches Speichern; gleichzeitige Änderungen werden erkannt (Versionsprüfung).
 * Export/Import einzelner Dashboards als JSON inkl. benötigter Kennzahlen und Konstanten.
 
-## Widgets (35 Typen)
+## Widgets (38 Typen)
 
 * **Kennzahlen:** Einzelwert, Mehrere Kennzahlen, KPI-Karte (Vergleich + Ziel), Vergleichskarte, Prozentanzeige, Trendanzeige
 * **Diagramme:** Linie, Fläche, Balken, gestapelte Balken, Kreis, Donut, Gauge, Radial Gauge, Heatmap (Stunde × Tag),
   Kalender-Heatmap, Verlaufskurve, Vergleichsdiagramm
 * **Energie:** Energiefluss (Solar/Netz/Batterie/Haus, live), Stromverbrauch, Kostenübersicht, Verbrauchsverteilung,
-  Solarproduktion, Eigenverbrauch/Autarkie, Netzbezug, Netzeinspeisung
+  Solarproduktion, Eigenverbrauch/Autarkie, Netzbezug, Netzeinspeisung, **Haus mit Solaranlage (animiert)**,
+  **Wärmepumpe (animiert)**
 * **Weitere:** Tabelle, Historische Daten, Statistikübersicht, Text (Markdown mit Live-Werten `{{sensor.x}}`),
-  Überschrift, Bild, Datum/Uhrzeit, Info-Karte, Analyse-Ergebnis
+  Überschrift, Bild, Datum/Uhrzeit, Info-Karte, Analyse-Ergebnis, **Eigene animierte Szene (HTML/CSS)**
 
 Jedes Widget hat einen Editor mit den Bereichen *Daten* (Quellen, Statistik, Zeitraum, Intervall,
 Aktualisierung), *Darstellung*, *Format* (Einheit, Nachkommastellen, Tausendertrennung, Präfix/Suffix,
 Farbpalette) und *Stil* (Hintergrund, Transparenz, Glas-Effekt, Rahmen, Radius, Schatten, Abstände, Titel).
+
+## Animierte Szenen (Solaranlage, Wärmepumpe, eigener Code)
+
+Die Szenen-Widgets zeigen eine Anlage als animierte Grafik mit Live-Werten an den passenden Stellen.
+
+**Vorlagen.** *Haus mit Solaranlage* und *Wärmepumpe* hinzufügen, dann unter *Daten* die Sensoren
+zuordnen (z. B. Solarleistung, Netzleistung, Batterie; bzw. Stromaufnahme, Wärmeleistung, Vor-/Rücklauf,
+Außentemperatur). Nur zugeordnete Teile werden angezeigt. Leistungen in kW werden automatisch in W
+umgerechnet, Zähler (kWh) zeigen den Verbrauch im gewählten *Zeitraum* (Standard: heute).
+
+* Tempo der Animation: über *Feineinstellung* (Regler-Symbol) „Wert bei 100 %“ auf die Maximalleistung
+  der Anlage setzen (z. B. 10 kWp → 10000 W, Wärmepumpe 3000 W).
+* Netz und Batterie: positiv = Bezug bzw. Laden, negativ = Einspeisung bzw. Entladen. Bei umgekehrtem
+  Vorzeichen „Vorzeichen umkehren“. Getrennte Sensoren für Bezug/Einspeisung unter *Weitere Zuordnungen*.
+* Berechnet, wenn kein eigener Sensor gewählt ist: Hausverbrauch (Solar + Netz − Batterie), Autarkie,
+  COP (Wärmeleistung ÷ Stromaufnahme, ab 50 W), Arbeitszahl im Zeitraum (Wärme ÷ Strom).
+
+**Freie Werte.** Unter *Freie Werte auf der Szene* weitere Sensoren oder Kennzahlen hinzufügen und in der
+Vorschau mit Maus/Finger an die gewünschte Stelle ziehen.
+
+**Eigener Code.** Szene *Eigener Code* wählen oder eine Vorlage über *Als eigenen Code bearbeiten*
+kopieren. Die Bühne hat eine feste Größe (Standard 960 × 540 px) und wird auf die Kachel skaliert.
+
+* Werte: `{{name}}` oder `<span data-value="name"></span>` (mit Einheit), `{{name.number}}` (nur Zahl)
+* CSS-Variablen: `var(--name)` 0…1 zwischen Min und Max, `--name-pct`, `--name-dur` (2,6 s → 0,4 s),
+  `--name-play` (`running`/`paused`), z. B. `animation: spin var(--pumpe-dur) linear infinite`
+* Klassen am `html`-Element: `has-name`, `name-an` (aktiv), `name-neg` (negativ)
+* `data-show-if="pv > 100"` blendet ein Element ein/aus, `data-class-if="warm: temp >= 21"` setzt eine Klasse
+* Theme-Farben `var(--text)`, `--muted`, `--accent`, `--chip-bg`, `--line`; `<span data-range></span>` = Zeitraum
+* Berechnete Werte: `+ - * / %`, Vergleiche, `if(bedingung, dann, sonst)`, `min`, `max`, `abs`, `round`,
+  `clamp`, `coalesce`
+
+Sicherheit: Der Code läuft in einem abgeschotteten Rahmen ohne Netzwerkzugriff und ohne Zugriff auf
+Anmeldung, Home Assistant oder die Add-on-API; er erhält nur die zugeordneten Werte. JavaScript ist
+standardmäßig blockiert (optional zuschaltbar; dann `window.HAS` und Ereignis `has:values`).
 
 ## Design
 

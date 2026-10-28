@@ -16,7 +16,7 @@ HA-Hardware (siehe unten).
 | 8 | Analyse-Engine (Vergleiche, Trends, Peaks, Anomalien, Profile, freie Vergleiche) | ✅ |
 | 9 | Frontend-Grundgerüst, Designsystem, Komponenten, Navigation, Login/Setup | ✅ |
 | 10 | Dashboard-Editor (DnD, Resize, Ebenen, Ausrichtung, Undo/Redo, Copy/Paste, Autosave, Breakpoints, Seiten) | ✅ |
-| 11 | 35 Widget-Typen mit schemagesteuertem Editor | ✅ |
+| 11 | 38 Widget-Typen mit schemagesteuertem Editor (inkl. animierter Szenen, 1.5.0) | ✅ |
 | 12 | 7 Design-Presets, Theme-Editor (global/Dashboard/Seite/Widget), Hintergrundbilder | ✅ |
 | 13 | ChatGPT-Export (Prompt/MD/JSON), Provider-Architektur (Ollama, OpenAI-kompatibel) | ✅ |
 | 14 | Präsentations-/Kioskmodus, Auto-Seitenwechsel, Fit-to-Screen, Wake-Lock, Share-Links | ✅ |

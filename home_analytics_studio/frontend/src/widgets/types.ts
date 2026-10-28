@@ -83,6 +83,8 @@ export interface WidgetDef {
   requests: (cfg: Record<string, any>) => DataRequest[]
   /** entity ids that should be subscribed for live updates */
   liveEntities?: (cfg: Record<string, any>) => string[]
+  /** custom data panel (replaces the generic source/slot pickers) */
+  DataEditor?: React.FC<{ cfg: Record<string, any>; set: (key: string, v: any) => void; patch: (p: Record<string, any>) => void }>
   Component: React.FC<WidgetProps>
 }
 

@@ -92,6 +92,7 @@ export default function WidgetEditor({ widget, onChange }: { widget: Widget; onC
   if (!def) return null
   const cfg = { ...def.defaults, ...widget.config }
   const set = (key: string, v: any) => onChange({ ...widget, config: { ...widget.config, [key]: v } })
+  const patch = (p: Record<string, any>) => onChange({ ...widget, config: { ...widget.config, ...p } })
   const setStyle = (key: keyof WidgetStyle, v: any) => onChange({ ...widget, style: { ...(widget.style || {}), [key]: v === '' ? undefined : v } })
   const st = widget.style || {}
   const hasData = def.sources !== 'none'
@@ -112,6 +113,7 @@ export default function WidgetEditor({ widget, onChange }: { widget: Widget; onC
 
       {tab === 'data' && (
         <div className="space-y-4">
+          {def.DataEditor && <def.DataEditor cfg={cfg} set={set} patch={patch} />}
           {(def.sources === 'single' || def.sources === 'multi' || def.sources === 'multi_slots') && (
             <Field label={def.sources === 'single' ? 'Datenquelle' : 'Datenquellen'}>
               <SourceList value={(cfg.sources as Source[]) || []} onChange={(v) => set('sources', v)} multi={def.sources !== 'single'} showStat={!!def.dataFields?.stat} />
