@@ -54,17 +54,23 @@ export function useLaunchToasts() {
   )
 }
 
-/** Pair a new screen with the code it shows (http://<host>/tv). */
-export function PairForm({ onPaired, defaultDashboardId }: { onPaired: () => void; defaultDashboardId?: number }) {
+/** Pair a screen with the code it shows (http://<host>/tv) – as a new device or attached to an existing one (e.g. a linked TV). */
+export function PairForm({ onPaired, defaultDashboardId, targets = [] }: { onPaired: () => void; defaultDashboardId?: number; targets?: DisplayInfo[] }) {
   const [code, setCode] = useState('')
   const [name, setName] = useState('Wohnzimmer-TV')
+  const [target, setTarget] = useState<string>('')
   const [busy, setBusy] = useState(false)
   const host = window.location.host
   const pair = async () => {
     setBusy(true)
     try {
-      await api.post('displays/pair', { code, name, dashboard_id: defaultDashboardId ?? null })
-      toast.ok(`„${name}“ gekoppelt`)
+      if (target) {
+        await api.post(`displays/${target}/claim`, { code })
+        toast.ok('Fernseher-Browser zugeordnet')
+      } else {
+        await api.post('displays/pair', { code, name, dashboard_id: defaultDashboardId ?? null })
+        toast.ok(`„${name}“ gekoppelt`)
+      }
       setCode('')
       onPaired()
     } catch (e) {
@@ -75,19 +81,27 @@ export function PairForm({ onPaired, defaultDashboardId }: { onPaired: () => voi
   }
   return (
     <div className="space-y-3 rounded-lg border border-line/50 p-3">
-      <div className="text-sm font-medium">Neuen Bildschirm koppeln</div>
+      <div className="text-sm font-medium">Gerät per Code koppeln</div>
       <p className="text-xs text-muted">
-        Am Fernseher/Tablet im Browser <b className="text-fg">{host}/tv</b> öffnen – dort erscheint ein 4-stelliger Code. Tipp für Fernseher: als Lesezeichen/Startseite speichern; der Bildschirm bleibt danach dauerhaft gekoppelt.
+        Am Fernseher/Tablet im Browser <b className="text-fg">{host}/tv</b> öffnen – dort erscheint ein 4-stelliger Code. Bei einem verknüpften Fernseher den Code diesem Gerät zuordnen,
+        dann öffnet er das Dashboard künftig selbst.
       </p>
-      <div className="grid gap-3 sm:grid-cols-[120px_1fr_auto]">
+      <div className="grid gap-3 sm:grid-cols-[110px_1fr_1fr_auto]">
         <Field label="Code">
           <Input inputMode="numeric" maxLength={4} value={code} onChange={(e) => setCode(e.target.value.replace(/\D/g, ''))} placeholder="1234" className="font-mono text-lg tracking-widest" />
         </Field>
-        <Field label="Name">
-          <Input value={name} onChange={(e) => setName(e.target.value)} />
+        <Field label="Zuordnen zu">
+          <Select value={target} onChange={setTarget} placeholder="Neues Gerät" options={targets.map((t) => ({ value: String(t.id), label: t.name }))} />
         </Field>
+        {!target ? (
+          <Field label="Name">
+            <Input value={name} onChange={(e) => setName(e.target.value)} />
+          </Field>
+        ) : (
+          <div />
+        )}
         <div className="flex items-end">
-          <Button variant="primary" loading={busy} disabled={code.length !== 4 || !name.trim()} onClick={pair} icon={<Link2 className="h-4 w-4" />}>
+          <Button variant="primary" loading={busy} disabled={code.length !== 4 || (!target && !name.trim())} onClick={pair} icon={<Link2 className="h-4 w-4" />}>
             Koppeln
           </Button>
         </div>
@@ -96,116 +110,161 @@ export function PairForm({ onPaired, defaultDashboardId }: { onPaired: () => voi
   )
 }
 
-/** Dashboard header button: show the current dashboard on another screen. */
-export function CastModal({ open, onClose, dashboard, page }: { open: boolean; onClose: () => void; dashboard: Dashboard; page: Page }) {
+/** Share sheet: tap a device to show the dashboard there; presentation link as secondary option. */
+export function ShareSheet({ open, onClose, dashboard, page, onPresentationLink }: {
+  open: boolean
+  onClose: () => void
+  dashboard: Dashboard
+  page: Page
+  onPresentationLink?: () => void
+}) {
   const { list, reload } = useDisplays(open)
-
   const canEdit = useRole('editor')
-  const [target, setTarget] = useState<number | null>(null)
+  const isAdmin = useRole('admin')
   const [mode, setMode] = useState<'page' | 'all'>('page')
   const [present, setPresent] = useState(true)
-  const [busy, setBusy] = useState(false)
+  const [sending, setSending] = useState<number | string | null>(null)
   const [pairing, setPairing] = useState(false)
+  const [tvs, setTvs] = useState<TvCandidate[]>([])
+  const [tvEnabled, setTvEnabled] = useState(false)
 
   useEffect(() => {
-    if (list && list.length && (target == null || !list.some((d) => d.id === target))) setTarget((list.find((d) => d.online) || list[0]).id)
-  }, [list, target])
+    if (!open || !isAdmin) return
+    api
+      .get<{ candidates: TvCandidate[]; enabled: boolean }>('displays/tv/candidates')
+      .then((r) => {
+        setTvs(r.candidates.filter((c) => !c.linked))
+        setTvEnabled(r.enabled)
+      })
+      .catch(() => undefined)
+  }, [open, isAdmin, list?.length])
 
-  const send = async (displayId: number) => {
-    setBusy(true)
+  const send = async (d: DisplayInfo) => {
+    setSending(d.id)
     try {
-      const res = await api.post<{ delivered: boolean; launching: boolean }>(`displays/${displayId}/show`, {
+      const res = await api.post<{ delivered: boolean; launching: boolean }>(`displays/${d.id}/show`, {
         dashboard_id: dashboard.id,
         page_id: mode === 'page' ? page.id : null,
         present: mode === 'all' ? present : false,
       })
-      const name = list?.find((d) => d.id === displayId)?.name
-      if (res.delivered) toast.ok(`Wird auf „${name}“ angezeigt`)
-      else if (res.launching) toast.info(`„${name}“ wird eingeschaltet und öffnet das Dashboard … (kann bis zu einer Minute dauern)`)
-      else toast.info(`„${name}“ ist gerade nicht verbunden – das Dashboard erscheint, sobald der Bildschirm wieder online ist.`)
+      if (res.delivered) toast.ok(`Wird auf „${d.name}“ angezeigt`)
+      else if (res.launching) toast.info(`„${d.name}“ wird eingeschaltet und öffnet das Dashboard … (bis zu einer Minute)`)
+      else toast.info(`„${d.name}“ ist gerade nicht verbunden – das Dashboard erscheint, sobald das Gerät wieder online ist.`)
       onClose()
     } catch (e) {
       toast.error(e)
     } finally {
-      setBusy(false)
+      setSending(null)
     }
   }
 
+  const addTvAndSend = async (c: TvCandidate) => {
+    setSending(c.entity_id)
+    try {
+      if (!tvEnabled) await api.put('settings/displays', { tv_control_enabled: true })
+      const d = await api.post<DisplayInfo>('displays/tv', { name: c.name, tv_entity: c.entity_id })
+      await send({ ...d, online: false })
+      reload()
+    } catch (e) {
+      toast.error(e)
+      setSending(null)
+    }
+  }
+
+  const status = (d: DisplayInfo) =>
+    d.online ? { text: 'online', cls: 'text-ok' } : d.tv_entity ? { text: 'aus – wird beim Antippen eingeschaltet', cls: 'text-muted' } : { text: `offline · ${formatAge(d.last_seen)}`, cls: 'text-muted' }
+
   return (
-    <Modal open={open} onClose={onClose} title="Auf Bildschirm anzeigen" size="md">
-      <div className="space-y-4">
-        {!list ? (
-          <Spinner />
-        ) : list.length === 0 ? (
-          <Empty icon={<Tv className="h-10 w-10" />} title="Noch kein Bildschirm gekoppelt">
-            Öffne am Fernseher im Browser <b>{window.location.host}/tv</b> und koppel ihn hier mit dem angezeigten Code.
-          </Empty>
-        ) : (
-          <div className="space-y-1.5">
-            {list.map((d) => (
-              <label
-                key={d.id}
-                className={clsx('flex cursor-pointer items-center gap-3 rounded-lg border px-3 py-2.5', target === d.id ? 'border-accent bg-accent/10' : 'border-line/50 hover:bg-fg/5')}
+    <Modal open={open} onClose={onClose} title="Teilen" size="md">
+      <div className="space-y-5">
+        <div>
+          <div className="label">Auf Gerät anzeigen</div>
+          <div className="mb-3 flex flex-wrap items-center gap-2">
+            {(['page', 'all'] as const).map((m) => (
+              <button
+                key={m}
+                onClick={() => setMode(m)}
+                className={clsx('rounded-full border px-3 py-1 text-xs', mode === m ? 'border-accent bg-accent/15 text-accent' : 'border-line/60 text-muted')}
               >
-                <input type="radio" className="accent-[rgb(var(--c-accent))]" checked={target === d.id} onChange={() => setTarget(d.id)} />
-                <Tv className="h-5 w-5 shrink-0 text-muted" />
-                <div className="min-w-0 flex-1">
-                  <div className="font-medium">{d.name}</div>
-                  <div className={clsx('text-xs', d.online ? 'text-ok' : 'text-muted')}>
-                    {d.online ? 'online' : d.tv_entity ? 'aus – wird beim Senden eingeschaltet' : `offline · zuletzt ${formatAge(d.last_seen)}`}
-                  </div>
-                </div>
-                <IconButton
-                  title="Bildschirm identifizieren (Name groß einblenden)"
-                  onClick={(e) => {
-                    e.preventDefault()
-                    api.post(`displays/${d.id}/identify`).catch(toast.error)
-                  }}
-                >
-                  <ScanEye className="h-4 w-4" />
-                </IconButton>
-              </label>
+                {m === 'page' ? `Diese Seite („${page.title}“)` : 'Ganzes Dashboard'}
+              </button>
             ))}
+            {mode === 'all' && <Switch checked={present} onChange={setPresent} label="Seiten wechseln" />}
           </div>
-        )}
-        {list && list.length > 0 && (
-          <div className="grid gap-3 sm:grid-cols-2">
-            <Field label="Anzeigen">
-              <Select
-                value={mode}
-                onChange={(v) => setMode(v as 'page' | 'all')}
-                options={[
-                  { value: 'page', label: `Nur diese Seite („${page.title}“)` },
-                  { value: 'all', label: 'Ganzes Dashboard (alle Seiten)' },
-                ]}
-              />
-            </Field>
-            {mode === 'all' && (
-              <div className="flex items-end pb-2">
-                <Switch checked={present} onChange={setPresent} label="Seiten automatisch wechseln" />
-              </div>
-            )}
-          </div>
-        )}
-        {list && list.length > 0 && (
-          <Button variant="primary" className="w-full" disabled={target == null} loading={busy} icon={<Send className="h-4 w-4" />} onClick={() => target != null && send(target)}>
-            Senden
-          </Button>
-        )}
+          {!list ? (
+            <Spinner />
+          ) : (
+            <div className="space-y-1.5">
+              {list.map((d) => {
+                const st = status(d)
+                return (
+                  <div key={d.id} className="flex items-center gap-2">
+                    <button
+                      onClick={() => send(d)}
+                      disabled={sending != null}
+                      className="flex min-w-0 flex-1 items-center gap-3 rounded-xl border border-line/50 px-3 py-3 text-left transition hover:border-accent hover:bg-accent/10 disabled:opacity-60"
+                    >
+                      <Tv className="h-6 w-6 shrink-0 text-accent" />
+                      <div className="min-w-0 flex-1">
+                        <div className="truncate font-medium">{d.name}</div>
+                        <div className={clsx('truncate text-xs', st.cls)}>{st.text}</div>
+                        {d.last_launch_error && !d.online && <div className="line-clamp-2 text-xs text-bad">{d.last_launch_error}</div>}
+                      </div>
+                      {sending === d.id ? <Spinner className="h-4 w-4" /> : <Send className="h-4 w-4 text-muted" />}
+                    </button>
+                    <IconButton title="Identifizieren (Name groß einblenden)" onClick={() => api.post(`displays/${d.id}/identify`).catch(toast.error)}>
+                      <ScanEye className="h-4 w-4" />
+                    </IconButton>
+                  </div>
+                )
+              })}
+              {isAdmin &&
+                tvs.map((c) => (
+                  <button
+                    key={c.entity_id}
+                    onClick={() => addTvAndSend(c)}
+                    disabled={sending != null}
+                    className="flex w-full items-center gap-3 rounded-xl border border-dashed border-line/60 px-3 py-3 text-left transition hover:border-accent hover:bg-accent/10 disabled:opacity-60"
+                  >
+                    <Power className="h-6 w-6 shrink-0 text-muted" />
+                    <div className="min-w-0 flex-1">
+                      <div className="truncate font-medium">{c.name}</div>
+                      <div className="truncate text-xs text-muted">Fernseher aus Home Assistant – antippen zum Hinzufügen und Anzeigen</div>
+                    </div>
+                    {sending === c.entity_id ? <Spinner className="h-4 w-4" /> : <Send className="h-4 w-4 text-muted" />}
+                  </button>
+                ))}
+              {list.length === 0 && tvs.length === 0 && (
+                <Empty icon={<Tv className="h-10 w-10" />} title="Noch kein Gerät">
+                  Am Fernseher im Browser <b>{window.location.host}/tv</b> öffnen und unten mit dem Code koppeln.
+                </Empty>
+              )}
+            </div>
+          )}
+        </div>
         {canEdit &&
-          (pairing || (list && list.length === 0) ? (
+          (pairing ? (
             <PairForm
               defaultDashboardId={dashboard.id}
+              targets={(list || []).filter((d) => d.tv_entity)}
               onPaired={() => {
                 setPairing(false)
                 reload()
               }}
             />
           ) : (
-            <Button variant="ghost" size="sm" onClick={() => setPairing(true)}>
-              + Neuen Bildschirm koppeln
+            <Button variant="ghost" size="sm" onClick={() => setPairing(true)} icon={<Link2 className="h-4 w-4" />}>
+              Gerät per Code koppeln
             </Button>
           ))}
+        {canEdit && onPresentationLink && (
+          <div className="border-t border-line/40 pt-4">
+            <div className="label">Link teilen</div>
+            <Button size="sm" variant="secondary" icon={<Link2 className="h-4 w-4" />} onClick={onPresentationLink}>
+              Präsentationslink (nur lesen)
+            </Button>
+          </div>
+        )}
       </div>
     </Modal>
   )
@@ -302,6 +361,37 @@ function TvControl({ onChanged }: { onChanged: () => void }) {
   )
 }
 
+function TvLinkSelect({ display, onChanged }: { display: DisplayInfo; onChanged: () => void }) {
+  const [options, setOptions] = useState<TvCandidate[] | null>(null)
+  const load = () => api.get<{ candidates: TvCandidate[] }>('displays/tv/candidates').then((r) => setOptions(r.candidates)).catch(() => setOptions([]))
+  return (
+    <select
+      className="mt-1 rounded-md border border-line/60 bg-bg/60 px-1.5 py-1 text-xs"
+      value={display.tv_entity || ''}
+      onFocus={() => options == null && load()}
+      onMouseDown={() => options == null && load()}
+      onChange={async (e) => {
+        try {
+          await api.put(`displays/${display.id}/tv`, { tv_entity: e.target.value || null })
+          toast.ok(e.target.value ? 'Mit Fernseher verknüpft' : 'Verknüpfung entfernt')
+          onChanged()
+        } catch (err) {
+          toast.error(err)
+        }
+      }}
+      title="Mit einem Fernseher aus Home Assistant verknüpfen (zum automatischen Einschalten)"
+    >
+      <option value="">– kein Fernseher verknüpft –</option>
+      {display.tv_entity && !options && <option value={display.tv_entity}>{display.tv_entity}</option>}
+      {(options || []).filter((o) => !o.linked || o.entity_id === display.tv_entity).map((o) => (
+        <option key={o.entity_id} value={o.entity_id}>
+          Fernseher: {o.name} ({o.entity_id})
+        </option>
+      ))}
+    </select>
+  )
+}
+
 /** Settings section. */
 export function DisplaysSettings() {
   const { list, reload } = useDisplays(true)
@@ -337,6 +427,7 @@ export function DisplaysSettings() {
                       {d.tv_entity ? `${d.tv_entity} · ` : d.screen ? `${d.screen} · ` : ''}zeigt: {name(d.current?.dashboard_id)}
                     </div>
                     {d.last_launch_error && <div className="text-xs text-bad">Letzter Start fehlgeschlagen: {d.last_launch_error}</div>}
+                    {isAdmin && <TvLinkSelect display={d} onChanged={reload} />}
                   </td>
                   <td className={clsx('px-2 text-xs', d.online ? 'text-ok' : 'text-muted')}>{d.online ? 'online' : `offline · ${formatAge(d.last_seen)}`}</td>
                   <td className="whitespace-nowrap px-2 text-right">
@@ -411,7 +502,7 @@ export function DisplaysSettings() {
         )}
       </div>
       {isAdmin && <TvControl onChanged={reload} />}
-      {canEdit && <PairForm onPaired={reload} />}
+      {canEdit && <PairForm onPaired={reload} targets={(list || []).filter((d) => d.tv_entity)} />}
       <div className="panel p-5 text-sm text-muted">
         <div className="mb-2 font-medium text-fg">Hinweise für Fernseher</div>
         <ul className="list-disc space-y-1 pl-5">

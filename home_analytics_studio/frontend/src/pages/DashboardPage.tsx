@@ -16,14 +16,14 @@ import {
   RefreshCw,
   Settings2,
   Trash2,
-  Cast,
+  Share2,
 } from 'lucide-react'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { ApiError, api, download } from '../api/client'
 import type { Breakpoint, Dashboard, Page } from '../api/types'
 import { Button, Empty, Field, IconButton, Input, Modal, NumberInput, Spinner, Tabs, confirmDialog, promptDialog, toast } from '../components/ui'
-import { CastModal } from '../components/Displays'
+import { ShareSheet } from '../components/Displays'
 import { DashboardSettingsModal, PageSettingsModal } from '../dashboard/DashboardSettings'
 import { EditorToolbar, LayersPanel, WidgetPalette } from '../dashboard/EditorPanels'
 import GridCanvas from '../dashboard/GridCanvas'
@@ -402,15 +402,13 @@ export default function DashboardPage() {
               <Presentation className="h-4 w-4" />
             </IconButton>
             {isUser && (
-              <Button size="sm" variant="outline" icon={<Cast className="h-4 w-4" />} onClick={() => setCastOpen(true)} title="Dashboard auf einem anderen Bildschirm (z. B. Fernseher) anzeigen">
-                <span className="hidden sm:inline">Auf Bildschirm</span>
+              <Button size="sm" variant="outline" icon={<Share2 className="h-4 w-4" />} onClick={() => setCastOpen(true)} title="Teilen – auf Fernseher oder anderem Gerät anzeigen">
+                <span className="hidden sm:inline">Teilen</span>
               </Button>
             )}
             {canEdit && (
               <>
-                <IconButton title="Präsentationslink erstellen" onClick={() => setShareOpen(true)}>
-                  <Link2 className="h-4 w-4" />
-                </IconButton>
+
                 <IconButton title="Dashboard exportieren (JSON)" onClick={() => download('GET', `dashboards/${dash.id}/export`).catch(toast.error)}>
                   <Download className="h-4 w-4" />
                 </IconButton>
@@ -543,7 +541,15 @@ export default function DashboardPage() {
       <DashboardSettingsModal open={settingsOpen} onClose={() => setSettingsOpen(false)} dashboard={dash} onSave={saveDashboard} />
       {pageMenu && <PageSettingsModal open={!!pageMenu} onClose={() => setPageMenu(null)} page={pageMenu} onSave={(patch) => savePageMeta(pageMenu, patch)} />}
       <ShareModal open={shareOpen} onClose={() => setShareOpen(false)} dashboard={dash} />
-      {castOpen && <CastModal open={castOpen} onClose={() => setCastOpen(false)} dashboard={dash} page={page} />}
+      {castOpen && (
+        <ShareSheet
+          open={castOpen}
+          onClose={() => setCastOpen(false)}
+          dashboard={dash}
+          page={page}
+          onPresentationLink={canEdit ? () => { setCastOpen(false); setShareOpen(true) } : undefined}
+        />
+      )}
     </RuntimeContext.Provider>
   )
 }

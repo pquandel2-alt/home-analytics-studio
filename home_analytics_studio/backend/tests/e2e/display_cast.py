@@ -4,6 +4,7 @@ Usage: python tests/e2e/display_cast.py http://localhost:18099 /tmp/shots
 """
 import json
 import sys
+import time
 import urllib.request
 from pathlib import Path
 
@@ -33,7 +34,7 @@ def main() -> int:
     errors = []
     with sync_playwright() as p:
         b = p.chromium.launch()
-        tv = b.new_page(viewport={"width": 1920, "height": 1080})
+        tv = b.new_context(viewport={"width": 1920, "height": 1080}).new_page()
         tv.on("pageerror", lambda e: errors.append(str(e)))
         # 1. TV opens the short URL
         tv.goto(BASE + "/tv")
@@ -47,18 +48,19 @@ def main() -> int:
         phone.on("pageerror", lambda e: errors.append(str(e)))
         phone.goto(f"{BASE}/#/d/{d['id']}/{p2['id']}")
         phone.wait_for_selector("text=Seite Zwei")
-        phone.click("button[title^='Dashboard auf einem anderen Bildschirm']")
-        phone.wait_for_selector("text=Noch kein Bildschirm gekoppelt")
+        name = f"TV-Test-{int(time.time()) % 100000}"
+        phone.click("button[title^='Teilen']")
+        phone.click("text=Gerät per Code koppeln")
         phone.fill("input[placeholder='1234']", code)
+        phone.fill("input[value='Wohnzimmer-TV']", name)
         phone.click("button:has-text('Koppeln')")
         phone.wait_for_selector("text=gekoppelt")
         print("[e2e] gekoppelt")
         # pairing with a default dashboard: the TV shows it right away
         tv.wait_for_selector("text=Seite Eins", timeout=15000)
-        # 3. send page two (only this page)
-        phone.wait_for_selector("text=Wohnzimmer-TV")
-        phone.click("button:has-text('Senden')")
-        phone.wait_for_selector("text=Wird auf „Wohnzimmer-TV“ angezeigt")
+        # 3. the share sheet stays open with the new device – tap it to send page two
+        phone.locator("button", has_text=name).first.click()
+        phone.wait_for_selector(f"text=Wird auf „{name}“ angezeigt")
         tv.wait_for_selector("text=Seite Zwei", timeout=15000)
         tv.screenshot(path=str(SHOTS / "tv_2_dashboard.png"))
         phone.screenshot(path=str(SHOTS / "tv_phone.png"))
@@ -68,7 +70,7 @@ def main() -> int:
         tv.wait_for_selector("text=Seite Zwei", timeout=15000)
         print("[e2e] nach Neuladen weiterhin gekoppelt und Dashboard wiederhergestellt")
         # 5. unpair -> new code
-        disp = api("GET", "displays")[0]
+        disp = next(x for x in api("GET", "displays") if x["name"] == name)
         api("DELETE", f"displays/{disp['id']}")
         tv.wait_for_selector("text=Kopplungscode", timeout=20000)
         print("[e2e] Entkoppeln -> neuer Kopplungscode")

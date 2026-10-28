@@ -8,6 +8,21 @@ from urllib.parse import urlparse
 
 log = logging.getLogger(__name__)
 
+# Samsung Tizen browser ("Internet"): classic id and the id used on newer models
+from ..ha.client import BROWSER_APP_IDS  # noqa: E402
+
+BROWSER_APPS = ("org.tizen.browser", "3201907018807")
+assert set(BROWSER_APPS) == BROWSER_APP_IDS
+PLAY_MEDIA = 512  # MediaPlayerEntityFeature.PLAY_MEDIA
+TURN_ON = 128
+
+
+def supports_play_media(state: dict | None) -> bool:
+    try:
+        return bool(int((state or {}).get("attributes", {}).get("supported_features") or 0) & PLAY_MEDIA)
+    except (TypeError, ValueError):
+        return False
+
 
 def tv_base_url(svc) -> str | None:
     """URL the TV opens. Configured value, else host of HA's internal URL + direct port of the add-on."""
@@ -39,14 +54,40 @@ async def launch(svc, display_id: int) -> None:
             await svc.ha.control_tv("turn_on", tv_entity)
             await _wait_for(lambda: (svc.ha.states.get(tv_entity) or {}).get("state") not in ("off", "unavailable", None), 25)
             await asyncio.sleep(float(svc.settings.get("displays", "boot_wait_seconds", 12) or 0))
-        await svc.ha.control_tv("play_media", tv_entity, {"media_content_type": "browser", "media_content_id": url})
-        # success = the display connects; otherwise retry once (browser start after boot can be slow)
-        if not await _wait_for(lambda: display_id in svc.live.online_displays(), 25):
-            await svc.ha.control_tv("play_media", tv_entity, {"media_content_type": "browser", "media_content_id": url})
-            if not await _wait_for(lambda: display_id in svc.live.online_displays(), 30):
-                raise TimeoutError("Fernseher hat die Seite nicht geöffnet (Browser-Start über die Integration nicht unterstützt?)")
+        online = lambda: display_id in svc.live.online_displays()  # noqa: E731
+        mode, app = svc.displays.launch_mode(display_id)
+        attempts: list[tuple[str, str]] = []
+        if mode == "app" and app:
+            attempts.append(("app", app))
+        elif mode != "app":
+            attempts.append(("url", url))
+        attempts += [("app", a) for a in BROWSER_APPS if ("app", a) not in attempts]
+        last_error: Exception | None = None
+        for kind, target in attempts:
+            try:
+                if kind == "url":
+                    await svc.ha.control_tv("play_media", tv_entity, {"media_content_type": "browser", "media_content_id": target})
+                else:
+                    # app mode: the browser opens its last page – the paired dashboard (one-time /tv setup)
+                    await svc.ha.control_tv("play_media", tv_entity, {"media_content_type": "app", "media_content_id": target})
+            except Exception as err:  # noqa: BLE001 – e.g. "can only play media of type app"
+                last_error = err
+                log.info("TV-Start (%s %s) abgelehnt: %s", kind, target, err)
+                continue
+            if await _wait_for(online, 30):
+                svc.displays.set_launch_mode(display_id, kind, target if kind == "app" else None)
+                last_error = None
+                break
+            last_error = TimeoutError(f"{'Adresse' if kind == 'url' else 'Internet-App ' + target} geöffnet, aber das Dashboard hat sich nicht gemeldet")
+        else:
+            if last_error is not None:
+                d = svc.displays.get(display_id) or {}
+                hint = ("" if d.get("screen") else
+                        f" Einmalig nötig: am Fernseher im Browser {base}/tv öffnen und den Code unter Teilen → "
+                        f"„Code einem Gerät zuordnen“ bei „{d.get('name')}“ eingeben.")
+                raise RuntimeError(f"{last_error}.{hint}")
     except Exception as err:  # noqa: BLE001
-        error = f"{type(err).__name__}: {err}" if not isinstance(err, (PermissionError, ValueError, TimeoutError)) else str(err)
+        error = str(err) if isinstance(err, (PermissionError, ValueError, TimeoutError, RuntimeError)) else f"{type(err).__name__}: {err}"
         log.warning("TV-Start für Bildschirm %s fehlgeschlagen: %s", display_id, error)
     svc.displays.set_launch_result(display_id, error)
     d = svc.displays.get(display_id) or {}

@@ -208,9 +208,11 @@ class MockHA:
             eid = (msg.get("target") or {}).get("entity_id")
             if msg.get("service") == "turn_on" and eid in self.states:
                 await self.push_state(eid, "on")
-            if self.on_service:
-                await self.on_service(msg)
-            await self._result(ws, mid, {"context": {"id": "x"}})
+            err = await self.on_service(msg) if self.on_service else None
+            if err:
+                await self._result(ws, mid, None, False, {"code": "home_assistant_error", "message": err})
+            else:
+                await self._result(ws, mid, {"context": {"id": "x"}})
         else:
             await self._result(ws, mid, None, False, {"code": "unknown_command", "message": f"Unknown command {t}"})
 

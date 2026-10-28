@@ -157,10 +157,10 @@ Dashboards lassen sich vom Handy oder PC aus auf einem anderen Bildschirm im Net
 
 1. **Einmalig am Fernseher/Tablet** im Browser `http://<HA-IP>:8100/tv` öffnen (z. B. `http://192.168.178.101:8100/tv`)
    und als Lesezeichen/Startseite speichern. Es erscheint ein 4-stelliger Kopplungscode.
-2. Am Handy ein Dashboard öffnen → **„Auf Bildschirm“** → „Neuen Bildschirm koppeln“ → Code und Name eingeben
+2. Am Handy ein Dashboard öffnen → **„Teilen“** → „Gerät per Code koppeln“ → Code und Name eingeben
    (alternativ *Einstellungen → Bildschirme (TV)*).
-3. Danach jederzeit: **„Auf Bildschirm“** → Bildschirm wählen → nur die aktuelle Seite oder das ganze Dashboard
-   (optional mit automatischem Seitenwechsel) → **Senden**. Der Bildschirm wechselt sofort.
+3. Danach jederzeit: **„Teilen“** → Gerät antippen. Oben lässt sich wählen, ob nur die aktuelle Seite oder das ganze Dashboard
+   (optional mit automatischem Seitenwechsel) angezeigt wird. Der Bildschirm wechselt sofort.
 
 Der Bildschirm bleibt dauerhaft gekoppelt, verbindet sich nach WLAN-Abbruch oder Neustart selbst neu und zeigt wieder das
 zuletzt gesendete Dashboard. Mit „Identifizieren“ blendet ein Bildschirm seinen Namen groß ein. Bildschirme haben nur
@@ -176,7 +176,11 @@ Dies ist die einzige Stelle, an der das Add-on Geräte steuert, und sie ist stan
 ausschließlich `media_player.turn_on` und `media_player.play_media` (Typ „browser“, Dashboard-Adresse) für ausdrücklich
 verknüpfte Fernseher; alle anderen Aktionen bleiben technisch gesperrt. Die Adresse, die der Fernseher öffnet, wird aus der
 internen URL von Home Assistant und dem Direktport abgeleitet oder kann eingetragen werden (z. B. `http://192.168.178.101:8100`).
-Schlägt das Öffnen fehl (nicht jede Fernseher-Integration kann Webseiten öffnen), erscheint eine Meldung mit dem Grund.
+Kann die Fernseher-Integration keine Adresse öffnen (z. B. die Standard-Samsung-Integration: „can only play media of type app“),
+startet das Add-on automatisch die **Internet-App** des Fernsehers; sie öffnet ihre zuletzt besuchte Seite. Dafür einmalig am
+Fernseher `…:8100/tv` öffnen und den Code unter „Teilen → Gerät per Code koppeln“ dem verknüpften Fernseher zuordnen. Die
+funktionierende Startart wird gespeichert. Nicht verknüpfte, aber geeignete Fernseher aus Home Assistant erscheinen im
+Teilen-Fenster und lassen sich mit einem Tipp hinzufügen.
 
 Geeignet sind alle Geräte mit Browser: Samsung-/LG-Fernseher (eingebauter Browser muss geöffnet bleiben),
 Fire TV / Android TV (Silk-Browser oder eine Kiosk-App wie „Fully Kiosk Browser“), Tablets, PCs. Chromecast/AirPlay wird

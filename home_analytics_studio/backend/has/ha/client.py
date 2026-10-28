@@ -47,6 +47,8 @@ BACKOFF = (1, 2, 5, 10, 20, 30, 60)
 # The ONLY state changing actions the add-on may ever perform – used exclusively by the
 # opt-in "open dashboard on TV" feature for TVs the user linked explicitly.
 ALLOWED_CONTROL = frozenset({("media_player", "turn_on"), ("media_player", "play_media")})
+# play_media is further limited to the dashboard URL or the TV browser app (Samsung Tizen ids)
+BROWSER_APP_IDS = frozenset({"org.tizen.browser", "3201907018807"})
 
 
 class HAError(Exception):
@@ -370,8 +372,11 @@ class HAClient:
         if not entity_id.startswith("media_player.") or "," in entity_id:
             raise PermissionError("Nur einzelne media_player-Entitäten")
         data = dict(data or {})
-        if service == "play_media" and data.get("media_content_type") != "browser":
-            raise PermissionError("Nur das Öffnen der Dashboard-Adresse im Browser ist erlaubt")
+        if service == "play_media":
+            ctype, cid = data.get("media_content_type"), str(data.get("media_content_id") or "")
+            # allowed: open the dashboard URL in the browser, or start the TV's browser app itself
+            if not (ctype == "browser" or (ctype == "app" and cid in BROWSER_APP_IDS)):
+                raise PermissionError("Nur das Öffnen des Dashboards im Browser des Fernsehers ist erlaubt")
         ws = self._ws
         if ws is None or ws.closed:
             raise HAError("Keine Verbindung zu Home Assistant")

@@ -62,3 +62,24 @@ def test_display_websocket_receives_show(config):
                 assert res["delivered"] is True
                 msg = ws.receive_json()
                 assert msg["type"] == "display_show" and msg["current"]["dashboard_id"] == dash["id"]
+
+
+def test_tv_candidates_only_capable_entities(config):
+    config.ingress_port = 80
+    config.ingress_trusted_ips = ["testclient"]
+    app = create_app(config, start_background=False)
+    with TestClient(app) as user:
+        user.headers.update(XRW)
+        ha = app.state.services.ha
+        ha.states = {
+            "media_player.core_tv": {"state": "off", "attributes": {"friendly_name": "A", "can_launch_apps": True, "supported_features": 512 | 128}},
+            "media_player.smartthings_tv": {"state": "off", "attributes": {"friendly_name": "B", "device_class": "tv", "supported_features": 128}},
+            "media_player.speaker": {"state": "off", "attributes": {"friendly_name": "C", "supported_features": 512}},
+        }
+        c = user.get("/api/displays/tv/candidates").json()["candidates"]
+        assert [x["entity_id"] for x in c] == ["media_player.core_tv"]
+        # linking an existing (code-paired) display keeps its own browser token valid
+        reg = user.post("/api/displays/register", json={}).json()
+        d = user.post("/api/displays/pair", json={"code": reg["code"], "name": "TV"}).json()
+        assert user.put(f"/api/displays/{d['id']}/tv", json={"tv_entity": "media_player.core_tv"}).status_code == 200
+        assert app.state.services.displays.principal(reg["token"]).display_id == d["id"]

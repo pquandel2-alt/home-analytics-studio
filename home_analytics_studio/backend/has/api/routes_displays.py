@@ -104,6 +104,22 @@ async def pair(body: PairBody, request: Request, _: Principal = Depends(editor))
     return d
 
 
+class ClaimBody(BaseModel):
+    code: str
+
+
+@router.post("/{display_id}/claim")
+async def claim(display_id: int, body: ClaimBody, request: Request, _: Principal = Depends(editor)) -> dict:
+    """The browser showing ``code`` becomes this (existing, e.g. TV-linked) display."""
+    svc = services(request)
+    try:
+        d = svc.displays.claim(body.code, display_id)
+    except KeyError as err:
+        raise HTTPException(404, str(err)) from err
+    svc.live.send_display(d["merged_from"], {"type": "display_paired"})
+    return d
+
+
 @router.post("/{display_id}/show")
 async def show(display_id: int, body: ShowBody, request: Request, principal: Principal = Depends(viewer)) -> dict:
     _user(principal)
@@ -139,7 +155,7 @@ async def tv_candidates(request: Request, _: Principal = Depends(admin)) -> dict
         if not eid.startswith("media_player."):
             continue
         a = st.get("attributes") or {}
-        if a.get("device_class") == "tv" or "can_launch_apps" in a:
+        if (a.get("device_class") == "tv" or "can_launch_apps" in a) and tv_launch.supports_play_media(st):
             out.append({"entity_id": eid, "name": a.get("friendly_name") or eid, "state": st.get("state"),
                         "can_launch_apps": bool(a.get("can_launch_apps")), "can_power_on": bool(a.get("can_power_on")),
                         "linked": eid in linked})
@@ -164,8 +180,10 @@ async def link_tv(display_id: int, body: LinkBody, request: Request, _: Principa
     svc = services(request)
     if body.tv_entity and (not body.tv_entity.startswith("media_player.") or body.tv_entity not in svc.ha.states):
         raise HTTPException(400, "Unbekannter Fernseher")
-    svc.displays.link_tv(display_id, body.tv_entity)
-    svc.live.send_display(display_id, {"type": "display_unpaired"}) if body.tv_entity else None
+    try:
+        svc.displays.link_tv(display_id, body.tv_entity)
+    except ValueError as err:
+        raise HTTPException(400, str(err)) from err
     return {"ok": True}
 
 

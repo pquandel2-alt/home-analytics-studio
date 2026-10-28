@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.3.0 – 2026-10-28
+
+- **Teilen-Fenster:** Ein „Teilen“-Symbol im Dashboard zeigt alle Geräte; ein Tipp auf ein Gerät zeigt das Dashboard dort an. Geeignete, noch nicht verknüpfte Fernseher aus Home Assistant lassen sich direkt hinzufügen. Präsentationslink als Unterpunkt.
+- **Fernseher ohne Adress-Start** (z. B. Samsung-Standardintegration): automatischer Rückfall auf den Start der Browser-App (`org.tizen.browser` bzw. `3201907018807`); die funktionierende Startart wird gemerkt. Erlaubt bleibt ausschließlich der Start der Browser-App, keine anderen Apps.
+- Gekoppelte Browser lassen sich einem verknüpften Fernseher zuordnen (kein doppelter Eintrag mehr); vorhandene Bildschirme können nachträglich mit einem Fernseher verknüpft werden.
+- Fernseher-Auswahl zeigt nur Entitäten, die laut Home Assistant Medien/Apps starten können.
+
 ## 1.2.0 – 2026-10-28
 
 - Neu (optional, standardmäßig aus): **Fernseher automatisch einschalten und Dashboard öffnen.** Verknüpfte Fernseher (z. B. Samsung mit „Samsung Smart TV Enhanced“) werden beim Senden über Home Assistant eingeschaltet und öffnen das Dashboard im Browser – ohne Eingabe oder Kopplung am Fernseher. Einzige erlaubte Steueraktionen: `media_player.turn_on` und `media_player.play_media` (Typ „browser“) für ausdrücklich verknüpfte Fernseher.

@@ -234,5 +234,70 @@ async def test_tv_launch_only_when_enabled_and_strictly_limited(env):
         await svc.ha.control_tv("play_media", "media_player.tv", {"media_content_type": "url", "media_content_id": "http://evil"})
     with pytest.raises(PermissionError):
         await svc.ha.control_tv("turn_on", "light.kitchen")
+    with pytest.raises(PermissionError):  # only the browser app may be started, no other apps
+        await svc.ha.control_tv("play_media", "media_player.tv", {"media_content_type": "app", "media_content_id": "Netflix"})
     with pytest.raises(PermissionError):
         await svc.ha.call("call_service", domain="media_player", service="turn_on")
+
+
+async def test_tv_falls_back_to_browser_app_and_remembers(env):
+    """Samsung core integration: no URL ('can only play media of type app') -> browser app opens last page."""
+    from has.core import tv_launch
+
+    svc, ha = env
+    ha.set_state("media_player.tv2", "on", {"friendly_name": "TV", "supported_features": 512 | 128})
+    await ha.push_state("media_player.tv2", "on")
+    svc.settings.update("displays", {"tv_control_enabled": True, "tv_url": "http://192.168.178.101:8100", "boot_wait_seconds": 0})
+    # one-time: the TV browser opened /tv, shows a code and is attached to the linked display
+    reg = svc.displays.register("Tizen", "1920x1080")
+    d = svc.displays.add_tv("Wohnzimmer-TV", "media_player.tv2")
+    merged = svc.displays.claim(reg["code"], d["id"])
+    browser_principal = svc.displays.principal(reg["token"])
+    assert browser_principal.display_id == d["id"] and merged["screen"] == "1920x1080"
+
+    async def samsung(msg):
+        if msg["service"] == "play_media":
+            if msg["service_data"]["media_content_type"] == "browser":
+                return "Samsung Local can only play media of type app on this television"
+            if msg["service_data"]["media_content_id"] == "org.tizen.browser":
+                class FakeClient:  # browser reopens its last page = the paired dashboard
+                    principal = browser_principal
+                    queue = asyncio.Queue()
+                svc.live.clients.add(FakeClient())
+        return None
+
+    ha.on_service = samsung
+    await tv_launch.launch(svc, d["id"])
+    info = svc.displays.get(d["id"])
+    assert info["last_launch_error"] is None
+    assert svc.displays.launch_mode(d["id"]) == ("app", "org.tizen.browser")
+    kinds = [c["service_data"]["media_content_type"] for c in ha.service_calls if c["service"] == "play_media"]
+    assert kinds == ["browser", "app"]
+    # second launch goes straight to the remembered app
+    svc.live.clients.clear()
+    ha.service_calls.clear()
+    await tv_launch.launch(svc, d["id"])
+    assert [c["service_data"]["media_content_type"] for c in ha.service_calls if c["service"] == "play_media"] == ["app"]
+
+
+async def test_tv_launch_reports_one_time_setup_hint(env):
+    from has.core import tv_launch
+
+    svc, ha = env
+    ha.set_state("media_player.tv3", "on", {"friendly_name": "TV", "supported_features": 512})
+    await ha.push_state("media_player.tv3", "on")
+    svc.settings.update("displays", {"tv_control_enabled": True, "tv_url": "http://192.168.178.101:8100", "boot_wait_seconds": 0})
+    d = svc.displays.add_tv("Schlafzimmer-TV", "media_player.tv3")
+
+    async def no_url(msg):
+        return "Samsung Local can only play media of type app on this television" if msg["service_data"].get("media_content_type") == "browser" else None
+    ha.on_service = no_url
+    import has.core.tv_launch as tl
+    orig = tl._wait_for
+    tl._wait_for = lambda cond, timeout, step=0.5: orig(cond, 0.2, step)  # speed up
+    try:
+        await tv_launch.launch(svc, d["id"])
+    finally:
+        tl._wait_for = orig
+    err = svc.displays.get(d["id"])["last_launch_error"]
+    assert "Einmalig nötig" in err and "/tv" in err

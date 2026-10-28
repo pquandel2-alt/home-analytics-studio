@@ -56,12 +56,32 @@ class DisplayService:
                          {"n": (name or "Bildschirm").strip()[:60], "cur": current, "i": row[0]})
         return self.get(row[0])
 
+    def claim(self, code: str, display_id: int) -> dict:
+        """Attach a browser showing a pairing code to an existing display (e.g. a linked TV)."""
+        code = (code or "").strip()
+        with self.db.write() as conn:
+            self._purge_unpaired(conn)
+            src = conn.execute(text("SELECT id, token_hash, screen, user_agent FROM displays WHERE paired=0 AND pair_code=:c"),
+                               {"c": code}).first()
+            if not src:
+                raise KeyError("Kein Bildschirm mit diesem Code gefunden (Code abgelaufen? Seite am Fernseher neu laden)")
+            if not conn.execute(text("SELECT 1 FROM displays WHERE id=:i AND paired=1"), {"i": display_id}).first():
+                raise KeyError("Bildschirm nicht gefunden")
+            conn.execute(text("DELETE FROM displays WHERE id=:i"), {"i": src[0]})
+            conn.execute(text("UPDATE displays SET token_hash=:h, screen=COALESCE(:s, screen), user_agent=COALESCE(:u, user_agent)"
+                              " WHERE id=:i"), {"h": src[1], "s": src[2], "u": src[3], "i": display_id})
+        return {"merged_from": src[0], **(self.get(display_id) or {})}
+
+    def set_launch_mode(self, display_id: int, mode: str, app: str | None) -> None:
+        with self.db.write() as conn:
+            conn.execute(text("UPDATE displays SET launch_mode=:m, launch_app=:a WHERE id=:i"), {"m": mode, "a": app, "i": display_id})
+
     def principal(self, token: str) -> Principal | None:
         if not token or not token.startswith("dsp_"):
             return None
         with self.db.read() as conn:
-            row = conn.execute(text("SELECT id, name, paired, last_seen FROM displays WHERE token_hash=:h"),
-                               {"h": hash_token(token)}).first()
+            row = conn.execute(text("SELECT id, name, paired, last_seen FROM displays WHERE token_hash=:h OR launch_token=:t"),
+                               {"h": hash_token(token), "t": token}).first()
         if not row:
             return None
         if time.time() - (row[3] or 0) > 120:
@@ -111,15 +131,25 @@ class DisplayService:
         """Link/unlink an existing display with a TV; a launch token is created on demand."""
         with self.db.write() as conn:
             if tv_entity:
+                if conn.execute(text("SELECT 1 FROM displays WHERE tv_entity=:e AND id!=:i"), {"e": tv_entity, "i": display_id}).first():
+                    raise ValueError("Dieser Fernseher ist bereits mit einem anderen Bildschirm verknüpft")
                 token = "dsp_" + secrets.token_urlsafe(24)
-                conn.execute(text("UPDATE displays SET tv_entity=:e, launch_token=:tok, token_hash=:h WHERE id=:i"),
-                             {"e": tv_entity, "tok": token, "h": hash_token(token), "i": display_id})
+                # the browser keeps its own token; the launch token is only used for URL launches
+                conn.execute(text("UPDATE displays SET tv_entity=:e, launch_token=COALESCE(launch_token, :tok),"
+                                  " launch_mode=NULL, launch_app=NULL, last_launch_error=NULL WHERE id=:i"),
+                             {"e": tv_entity, "tok": token, "i": display_id})
             else:
-                conn.execute(text("UPDATE displays SET tv_entity=NULL, launch_token=NULL WHERE id=:i"), {"i": display_id})
+                conn.execute(text("UPDATE displays SET tv_entity=NULL, launch_token=NULL, launch_mode=NULL, launch_app=NULL"
+                                  " WHERE id=:i"), {"i": display_id})
 
     def launch_info(self, display_id: int) -> tuple[str | None, str | None]:
         with self.db.read() as conn:
             row = conn.execute(text("SELECT tv_entity, launch_token FROM displays WHERE id=:i"), {"i": display_id}).first()
+        return (row[0], row[1]) if row else (None, None)
+
+    def launch_mode(self, display_id: int) -> tuple[str | None, str | None]:
+        with self.db.read() as conn:
+            row = conn.execute(text("SELECT launch_mode, launch_app FROM displays WHERE id=:i"), {"i": display_id}).first()
         return (row[0], row[1]) if row else (None, None)
 
     def set_launch_result(self, display_id: int, error: str | None) -> None:

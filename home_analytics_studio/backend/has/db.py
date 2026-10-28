@@ -226,6 +226,8 @@ displays = Table(
     Column("launch_token", Text),  # read-only display token embedded in the URL opened on the TV
     Column("last_launch", Float),
     Column("last_launch_error", Text),
+    Column("launch_mode", Text),  # url | app (detected automatically)
+    Column("launch_app", Text),  # app id that brought up the dashboard (app mode)
 )
 
 audit_log = Table(
@@ -277,6 +279,13 @@ def _m6_tv_launch(conn: Connection) -> None:
             conn.execute(text(f"ALTER TABLE displays ADD COLUMN {name} {typ}"))
 
 
+def _m7_launch_mode(conn: Connection) -> None:
+    cols = {r[1] for r in conn.execute(text("PRAGMA table_info(displays)"))}
+    for name in ("launch_mode", "launch_app"):
+        if name not in cols:
+            conn.execute(text(f"ALTER TABLE displays ADD COLUMN {name} TEXT"))
+
+
 MIGRATIONS: list[tuple[int, str, Migration]] = [
     (1, "initial schema", _m1_initial),
     (2, "secondary indexes", _m2_indexes),
@@ -284,6 +293,7 @@ MIGRATIONS: list[tuple[int, str, Migration]] = [
     (4, "counter plausibility limit", _m4_max_rate),
     (5, "remote displays", _m5_displays),
     (6, "tv remote launch", _m6_tv_launch),
+    (7, "tv launch mode", _m7_launch_mode),
 ]
 
 SCHEMA_VERSION = MIGRATIONS[-1][0]
