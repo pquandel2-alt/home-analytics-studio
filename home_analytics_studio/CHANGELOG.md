@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.2.0 – 2026-10-28
+
+- Neu (optional, standardmäßig aus): **Fernseher automatisch einschalten und Dashboard öffnen.** Verknüpfte Fernseher (z. B. Samsung mit „Samsung Smart TV Enhanced“) werden beim Senden über Home Assistant eingeschaltet und öffnen das Dashboard im Browser – ohne Eingabe oder Kopplung am Fernseher. Einzige erlaubte Steueraktionen: `media_player.turn_on` und `media_player.play_media` (Typ „browser“) für ausdrücklich verknüpfte Fernseher.
+- Erfolgs-/Fehlermeldung des Fernseherstarts erscheint überall in der App.
+
 ## 1.1.0 – 2026-10-28
 
 - Neu: **Auf Bildschirm anzeigen** – Dashboards vom Handy aus auf Fernsehern, Wandtablets oder PCs im Netzwerk anzeigen. Bildschirm öffnet einmalig `http://<HA-IP>:8100/tv`, wird per 4-stelligem Code gekoppelt und empfängt Dashboards live (WebSocket). Dauerhaft gekoppelt, automatische Wiederverbindung, nur Lesezugriff. Verwaltung unter Einstellungen → Bildschirme (TV).

@@ -64,6 +64,9 @@ export default function DisplayPage() {
     started.current = true
     ;(async () => {
       try {
+        // linked TVs are opened remotely with ?display=<token> – no pairing needed
+        const fromUrl = new URLSearchParams(window.location.search).get('display')
+        if (fromUrl && fromUrl.startsWith('dsp_')) localStorage.setItem(TOKEN_KEY, fromUrl)
         const tok = localStorage.getItem(TOKEN_KEY)
         if (tok) setDisplayToken(tok)
         else await register()

@@ -192,3 +192,47 @@ async def test_thermostat_setpoint_and_heating_share(env):
     await ha.push_state("climate.buro", "heat", attrs(22.5, "heating"))
     assert await wait_for(lambda: svc.store.get(vid_sp).last_value == 22.5, 5)
     assert svc.store.get(vid_h).last_value == 100.0
+
+
+async def test_tv_launch_only_when_enabled_and_strictly_limited(env):
+    """Opt-in TV control: turn on + open dashboard URL; nothing else is possible."""
+    from has.core import tv_launch
+
+    svc, ha = env
+    ha.set_state("media_player.tv", "off", {"friendly_name": "TV", "can_launch_apps": True, "can_power_on": True})
+    await ha.push_state("media_player.tv", "off")
+    svc.ha.config["internal_url"] = "http://192.168.178.101:8123"
+    svc.config.direct_port = 8100
+    d = svc.displays.add_tv("Wohnzimmer-TV", "media_player.tv")
+    svc.settings.update("displays", {"boot_wait_seconds": 0})
+    # disabled by default -> no service call at all
+    await tv_launch.launch(svc, d["id"])
+    assert ha.service_calls == [] and "nicht aktiviert" in svc.displays.get(d["id"])["last_launch_error"]
+    svc.settings.update("displays", {"tv_control_enabled": True})
+
+    async def tv_browser(msg):  # simulated TV: opening the URL connects the display
+        if msg["service"] == "play_media":
+            token = msg["service_data"]["media_content_id"].split("display=")[1]
+            p = svc.displays.principal(token)
+
+            class FakeClient:
+                principal = p
+                queue = asyncio.Queue()
+            svc.live.clients.add(FakeClient())
+
+    ha.on_service = tv_browser
+    await tv_launch.launch(svc, d["id"])
+    calls = [(c["service"], c["target"]["entity_id"]) for c in ha.service_calls]
+    assert calls == [("turn_on", "media_player.tv"), ("play_media", "media_player.tv")]
+    url = ha.service_calls[1]["service_data"]["media_content_id"]
+    assert url.startswith("http://192.168.178.101:8100/tv?display=dsp_") and ha.service_calls[1]["service_data"]["media_content_type"] == "browser"
+    assert svc.displays.get(d["id"])["last_launch_error"] is None
+    # nothing beyond the two allowed actions
+    with pytest.raises(PermissionError):
+        await svc.ha.control_tv("volume_set", "media_player.tv", {"volume_level": 1})
+    with pytest.raises(PermissionError):
+        await svc.ha.control_tv("play_media", "media_player.tv", {"media_content_type": "url", "media_content_id": "http://evil"})
+    with pytest.raises(PermissionError):
+        await svc.ha.control_tv("turn_on", "light.kitchen")
+    with pytest.raises(PermissionError):
+        await svc.ha.call("call_service", domain="media_player", service="turn_on")

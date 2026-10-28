@@ -18,6 +18,7 @@ import { useEffect, useState } from 'react'
 import { NavLink, Outlet, useLocation } from 'react-router-dom'
 import { api } from '../api/client'
 import { useLive } from '../api/live'
+import { useLaunchToasts } from '../components/Displays'
 import { useApp, useRole } from '../store/app'
 
 const NAV = [
@@ -39,6 +40,7 @@ export default function Shell() {
   const wsConnected = useLive((s) => s.connected)
   const isAdmin = useRole('admin')
   const fullBleed = loc.pathname.startsWith('/d/')
+  useLaunchToasts()
 
   useEffect(() => setMobileOpen(false), [loc.pathname])
   useEffect(() => localStorage.setItem('has-nav-collapsed', collapsed ? '1' : '0'), [collapsed])

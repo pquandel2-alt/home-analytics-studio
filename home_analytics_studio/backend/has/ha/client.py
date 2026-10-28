@@ -44,6 +44,10 @@ ALLOWED_EVENTS = frozenset({
 
 BACKOFF = (1, 2, 5, 10, 20, 30, 60)
 
+# The ONLY state changing actions the add-on may ever perform – used exclusively by the
+# opt-in "open dashboard on TV" feature for TVs the user linked explicitly.
+ALLOWED_CONTROL = frozenset({("media_player", "turn_on"), ("media_player", "play_media")})
+
 
 class HAError(Exception):
     pass
@@ -353,6 +357,31 @@ class HAClient:
         fut: asyncio.Future = asyncio.get_running_loop().create_future()
         self._pending[msg_id] = fut
         await ws.send_json({"id": msg_id, "type": command, **payload})
+        try:
+            return await asyncio.wait_for(fut, timeout)
+        finally:
+            self._pending.pop(msg_id, None)
+
+    async def control_tv(self, service: str, entity_id: str, data: dict | None = None, timeout: float = 30) -> Any:
+        """Narrow exception to the read-only rule (see ALLOWED_CONTROL). Callers must check that the
+        user enabled TV control and linked this entity."""
+        if ("media_player", service) not in ALLOWED_CONTROL:
+            raise PermissionError(f"Aktion media_player.{service} ist nicht erlaubt")
+        if not entity_id.startswith("media_player.") or "," in entity_id:
+            raise PermissionError("Nur einzelne media_player-Entitäten")
+        data = dict(data or {})
+        if service == "play_media" and data.get("media_content_type") != "browser":
+            raise PermissionError("Nur das Öffnen der Dashboard-Adresse im Browser ist erlaubt")
+        ws = self._ws
+        if ws is None or ws.closed:
+            raise HAError("Keine Verbindung zu Home Assistant")
+        self._msg_id += 1
+        msg_id = self._msg_id
+        fut: asyncio.Future = asyncio.get_running_loop().create_future()
+        self._pending[msg_id] = fut
+        log.info("TV-Steuerung: media_player.%s für %s", service, entity_id)
+        await ws.send_json({"id": msg_id, "type": "call_service", "domain": "media_player", "service": service,
+                            "target": {"entity_id": entity_id}, "service_data": data})
         try:
             return await asyncio.wait_for(fut, timeout)
         finally:

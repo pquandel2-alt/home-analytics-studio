@@ -1,7 +1,7 @@
 # Home Analytics Studio – Benutzerhandbuch
 
 Home Analytics Studio ist ein eigenständiges Analyse- und Visualisierungssystem. Home Assistant dient
-ausschließlich als **Datenquelle**: Das Add-on liest Zustände, Historie und Statistiken, speichert die
+ausschließlich als **Datenquelle**: Das Add-on liest Zustände, Historie und Statistiken (einzige, optionale Ausnahme: Fernseher für die Dashboard-Anzeige einschalten, siehe unten), speichert die
 ausgewählten Messwerte in einer **eigenen Langzeitdatenbank** und stellt sie in frei gestaltbaren
 Dashboards dar. **Es steuert keine Geräte** – die Verbindung zu Home Assistant ist technisch auf lesende
 Befehle beschränkt.
@@ -165,6 +165,18 @@ Dashboards lassen sich vom Handy oder PC aus auf einem anderen Bildschirm im Net
 Der Bildschirm bleibt dauerhaft gekoppelt, verbindet sich nach WLAN-Abbruch oder Neustart selbst neu und zeigt wieder das
 zuletzt gesendete Dashboard. Mit „Identifizieren“ blendet ein Bildschirm seinen Namen groß ein. Bildschirme haben nur
 Lesezugriff und lassen sich unter *Einstellungen → Bildschirme* umbenennen, neu laden oder entkoppeln.
+
+### Fernseher automatisch einschalten und öffnen (optional, Gerätesteuerung)
+
+Unter *Einstellungen → Bildschirme (TV)* lässt sich ein Fernseher aus Home Assistant verknüpfen (z. B. Samsung über die
+Integration „Samsung Smart TV Enhanced“). Ist **„Fernseher-Steuerung erlauben“** aktiviert, schaltet „Auf Bildschirm → Senden“
+den Fernseher bei Bedarf ein und öffnet dort das Dashboard im Browser – am Fernseher ist nichts zu tun, auch keine Kopplung.
+
+Dies ist die einzige Stelle, an der das Add-on Geräte steuert, und sie ist standardmäßig ausgeschaltet. Erlaubt sind
+ausschließlich `media_player.turn_on` und `media_player.play_media` (Typ „browser“, Dashboard-Adresse) für ausdrücklich
+verknüpfte Fernseher; alle anderen Aktionen bleiben technisch gesperrt. Die Adresse, die der Fernseher öffnet, wird aus der
+internen URL von Home Assistant und dem Direktport abgeleitet oder kann eingetragen werden (z. B. `http://192.168.178.101:8100`).
+Schlägt das Öffnen fehl (nicht jede Fernseher-Integration kann Webseiten öffnen), erscheint eine Meldung mit dem Grund.
 
 Geeignet sind alle Geräte mit Browser: Samsung-/LG-Fernseher (eingebauter Browser muss geöffnet bleiben),
 Fire TV / Android TV (Silk-Browser oder eine Kiosk-App wie „Fully Kiosk Browser“), Tablets, PCs. Chromecast/AirPlay wird

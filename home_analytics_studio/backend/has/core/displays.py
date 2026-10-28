@@ -94,6 +94,39 @@ class DisplayService:
                 raise KeyError("Bildschirm nicht gefunden")
         return cur
 
+    def add_tv(self, name: str, tv_entity: str) -> dict:
+        """Create an already paired display linked to a TV (media_player). The TV opens a URL that
+        carries its own read-only display token – no input on the TV is ever needed."""
+        token = "dsp_" + secrets.token_urlsafe(24)
+        with self.db.write() as conn:
+            if conn.execute(text("SELECT 1 FROM displays WHERE tv_entity=:e"), {"e": tv_entity}).first():
+                raise ValueError("Dieser Fernseher ist bereits verknüpft")
+            res = conn.execute(text("INSERT INTO displays(name, token_hash, paired, created_at, tv_entity, launch_token)"
+                                    " VALUES (:n, :h, 1, :t, :e, :tok)"),
+                               {"n": (name or "Fernseher").strip()[:60], "h": hash_token(token), "t": time.time(),
+                                "e": tv_entity, "tok": token})
+        return self.get(res.lastrowid)
+
+    def link_tv(self, display_id: int, tv_entity: str | None) -> None:
+        """Link/unlink an existing display with a TV; a launch token is created on demand."""
+        with self.db.write() as conn:
+            if tv_entity:
+                token = "dsp_" + secrets.token_urlsafe(24)
+                conn.execute(text("UPDATE displays SET tv_entity=:e, launch_token=:tok, token_hash=:h WHERE id=:i"),
+                             {"e": tv_entity, "tok": token, "h": hash_token(token), "i": display_id})
+            else:
+                conn.execute(text("UPDATE displays SET tv_entity=NULL, launch_token=NULL WHERE id=:i"), {"i": display_id})
+
+    def launch_info(self, display_id: int) -> tuple[str | None, str | None]:
+        with self.db.read() as conn:
+            row = conn.execute(text("SELECT tv_entity, launch_token FROM displays WHERE id=:i"), {"i": display_id}).first()
+        return (row[0], row[1]) if row else (None, None)
+
+    def set_launch_result(self, display_id: int, error: str | None) -> None:
+        with self.db.write() as conn:
+            conn.execute(text("UPDATE displays SET last_launch=:t, last_launch_error=:e WHERE id=:i"),
+                         {"t": time.time(), "e": error, "i": display_id})
+
     def update(self, display_id: int, name: str | None) -> None:
         with self.db.write() as conn:
             conn.execute(text("UPDATE displays SET name=COALESCE(:n, name) WHERE id=:i"), {"n": name, "i": display_id})
@@ -106,6 +139,7 @@ class DisplayService:
 def _row(row) -> dict[str, Any]:
     d = dict(row)
     d.pop("token_hash", None)
+    d.pop("launch_token", None)
     d["current"] = json.loads(d["current"]) if d.get("current") else None
     d["paired"] = bool(d.get("paired"))
     return d

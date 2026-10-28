@@ -222,6 +222,10 @@ displays = Table(
     Column("last_seen", Float),
     Column("user_agent", Text),
     Column("screen", Text),
+    Column("tv_entity", Text),  # linked media_player (opened remotely, see displays.launch)
+    Column("launch_token", Text),  # read-only display token embedded in the URL opened on the TV
+    Column("last_launch", Float),
+    Column("last_launch_error", Text),
 )
 
 audit_log = Table(
@@ -266,12 +270,20 @@ def _m5_displays(conn: Connection) -> None:
     displays.create(conn, checkfirst=True)
 
 
+def _m6_tv_launch(conn: Connection) -> None:
+    cols = {r[1] for r in conn.execute(text("PRAGMA table_info(displays)"))}
+    for name, typ in (("tv_entity", "TEXT"), ("launch_token", "TEXT"), ("last_launch", "REAL"), ("last_launch_error", "TEXT")):
+        if name not in cols:
+            conn.execute(text(f"ALTER TABLE displays ADD COLUMN {name} {typ}"))
+
+
 MIGRATIONS: list[tuple[int, str, Migration]] = [
     (1, "initial schema", _m1_initial),
     (2, "secondary indexes", _m2_indexes),
     (3, "raw retention watermark", _m3_raw_from),
     (4, "counter plausibility limit", _m4_max_rate),
     (5, "remote displays", _m5_displays),
+    (6, "tv remote launch", _m6_tv_launch),
 ]
 
 SCHEMA_VERSION = MIGRATIONS[-1][0]

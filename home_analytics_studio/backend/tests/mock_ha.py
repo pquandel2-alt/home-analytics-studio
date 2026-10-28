@@ -34,6 +34,8 @@ class MockHA:
         self.clients: set[web.WebSocketResponse] = set()
         self.subscriptions: dict[web.WebSocketResponse, dict[int, str]] = {}
         self.received: list[dict] = []
+        self.service_calls: list[dict] = []
+        self.on_service = None
         self.areas = [{"area_id": "wohnzimmer", "name": "Wohnzimmer"}, {"area_id": "keller", "name": "Keller"}]
         self.devices = [{"id": "dev1", "name": "Stromzähler", "area_id": "keller"},
                         {"id": "dev2", "name": "Klimasensor", "area_id": "wohnzimmer"}]
@@ -201,6 +203,14 @@ class MockHA:
                 if rows:
                     out[sid] = rows
             await self._result(ws, mid, out)
+        elif t == "call_service":
+            self.service_calls.append(msg)
+            eid = (msg.get("target") or {}).get("entity_id")
+            if msg.get("service") == "turn_on" and eid in self.states:
+                await self.push_state(eid, "on")
+            if self.on_service:
+                await self.on_service(msg)
+            await self._result(ws, mid, {"context": {"id": "x"}})
         else:
             await self._result(ws, mid, None, False, {"code": "unknown_command", "message": f"Unknown command {t}"})
 

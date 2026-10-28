@@ -5,7 +5,10 @@ from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel
 
 from ..core.auth import Principal, RateLimiter
-from .deps import client_ip, current_principal, editor, services, viewer
+import asyncio
+
+from ..core import tv_launch
+from .deps import admin, client_ip, current_principal, editor, services, viewer
 
 router = APIRouter(prefix="/api/displays", tags=["displays"])
 _register_limit = RateLimiter(limit=10, window=600)
@@ -25,6 +28,30 @@ class ShowBody(BaseModel):
 
 class PatchBody(BaseModel):
     name: str | None = None
+
+
+class TvBody(BaseModel):
+    name: str
+    tv_entity: str
+
+
+class LinkBody(BaseModel):
+    tv_entity: str | None = None
+
+
+def _start_launch(svc, display_id: int) -> bool:
+    """Start the TV launch in the background (one at a time per display)."""
+    tasks = svc.__dict__.setdefault("_tv_tasks", {})
+    t = tasks.get(display_id)
+    if t is not None and not t.done():
+        return True
+    tasks[display_id] = asyncio.create_task(tv_launch.launch(svc, display_id))
+    return True
+
+
+def _tv_ready(svc, display_id: int) -> bool:
+    tv_entity, _ = svc.displays.launch_info(display_id)
+    return bool(tv_entity) and bool(svc.settings.get("displays", "tv_control_enabled", False))
 
 
 def _user(principal: Principal) -> Principal:
@@ -86,7 +113,60 @@ async def show(display_id: int, body: ShowBody, request: Request, principal: Pri
     except KeyError as err:
         raise HTTPException(404, str(err)) from err
     receivers = svc.live.send_display(display_id, {"type": "display_show", "current": cur})
-    return {"current": cur, "delivered": receivers > 0}
+    launching = False
+    if receivers == 0 and _tv_ready(svc, display_id):
+        # linked TV is off / browser closed: turn it on and open the dashboard (opt-in feature)
+        launching = _start_launch(svc, display_id)
+    return {"current": cur, "delivered": receivers > 0, "launching": launching}
+
+
+@router.post("/{display_id}/launch")
+async def launch(display_id: int, request: Request, principal: Principal = Depends(viewer)) -> dict:
+    _user(principal)
+    svc = services(request)
+    if not _tv_ready(svc, display_id):
+        raise HTTPException(400, "Fernseher-Steuerung nicht aktiviert oder Bildschirm mit keinem Fernseher verknüpft")
+    return {"launching": _start_launch(svc, display_id)}
+
+
+@router.get("/tv/candidates")
+async def tv_candidates(request: Request, _: Principal = Depends(admin)) -> dict:
+    """media_player entities that can open apps/URLs (TVs), plus the URL the TV would open."""
+    svc = services(request)
+    linked = {d.get("tv_entity") for d in svc.displays.list()}
+    out = []
+    for eid, st in svc.ha.states.items():
+        if not eid.startswith("media_player."):
+            continue
+        a = st.get("attributes") or {}
+        if a.get("device_class") == "tv" or "can_launch_apps" in a:
+            out.append({"entity_id": eid, "name": a.get("friendly_name") or eid, "state": st.get("state"),
+                        "can_launch_apps": bool(a.get("can_launch_apps")), "can_power_on": bool(a.get("can_power_on")),
+                        "linked": eid in linked})
+    out.sort(key=lambda x: (not x["can_launch_apps"], x["name"]))
+    return {"candidates": out, "tv_url": tv_launch.tv_base_url(svc),
+            "enabled": bool(svc.settings.get("displays", "tv_control_enabled", False))}
+
+
+@router.post("/tv")
+async def add_tv(body: TvBody, request: Request, _: Principal = Depends(admin)) -> dict:
+    svc = services(request)
+    if not body.tv_entity.startswith("media_player.") or body.tv_entity not in svc.ha.states:
+        raise HTTPException(400, "Unbekannter Fernseher")
+    try:
+        return svc.displays.add_tv(body.name, body.tv_entity)
+    except ValueError as err:
+        raise HTTPException(400, str(err)) from err
+
+
+@router.put("/{display_id}/tv")
+async def link_tv(display_id: int, body: LinkBody, request: Request, _: Principal = Depends(admin)) -> dict:
+    svc = services(request)
+    if body.tv_entity and (not body.tv_entity.startswith("media_player.") or body.tv_entity not in svc.ha.states):
+        raise HTTPException(400, "Unbekannter Fernseher")
+    svc.displays.link_tv(display_id, body.tv_entity)
+    svc.live.send_display(display_id, {"type": "display_unpaired"}) if body.tv_entity else None
+    return {"ok": True}
 
 
 @router.post("/{display_id}/identify")

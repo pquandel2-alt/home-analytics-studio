@@ -84,8 +84,10 @@ def create_app(config: Config | None = None, start_background: bool = True) -> F
         await svc.live.serve(ws, principal)
 
     @app.get("/tv", include_in_schema=False)
-    async def tv_redirect() -> Response:
-        return Response(status_code=307, headers={"Location": "./#/display"})
+    async def tv_redirect(request: Request) -> Response:
+        # keep ?display=<token> (opened remotely on linked TVs) – the page reads it from location.search
+        q = request.url.query
+        return Response(status_code=307, headers={"Location": f"./{'?' + q if q else ''}#/display"})
 
     static_dir: Path | None = config.static_dir
     if static_dir and static_dir.exists():

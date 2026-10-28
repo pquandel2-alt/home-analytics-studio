@@ -66,6 +66,11 @@ DEFAULTS: dict[str, dict[str, Any]] = {
         "auto_include_data": True,
         "auto_hour": 3,
     },
+    "displays": {
+        "tv_control_enabled": False,  # explicit opt-in: allow turning on linked TVs + opening the dashboard URL
+        "tv_url": "",  # base URL the TV opens, e.g. http://192.168.178.101:8100 (empty = derived from HA internal URL)
+        "boot_wait_seconds": 12,
+    },
     "presentation": {
         "interval_seconds": 30,
         "refresh_seconds": 60,
