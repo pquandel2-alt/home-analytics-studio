@@ -225,3 +225,35 @@ def test_state_stat_shows_meter_reading_like_ha(app, ingress):
     assert state["values"] == [3560.0, 3561.0, 3562.0, 3562.0]
     delta = ingress.post("/api/data/series", json={"source": {"type": "entity", "id": "sensor.zaehler"}, "range": rng, "interval": "1h"}).json()
     assert delta["values"] == [0.0, 1.0, 1.0, 0.0]
+
+
+def test_mean_aggregation_uses_complete_days_only(app, ingress):
+    """'Ø per day' must not be dragged down by today's started day or a cut-off first day."""
+    from datetime import datetime
+    from zoneinfo import ZoneInfo
+
+    svc = app.state.services
+    svc.settings.update("general", {"timezone": "Europe/Berlin"})
+    svc.store.set_recording(["sensor.m"], True, {"sensor.m": {"unit_of_measurement": "kWh", "state_class": "total_increasing"}})
+    info = svc.store.get("sensor.m")
+    tz = ZoneInfo("Europe/Berlin")
+    midnight = int(datetime.now(tz).replace(hour=0, minute=0, second=0, microsecond=0).timestamp())
+    start = midnight - 10 * 86400
+    now = time.time()
+    rows, v, t = [], 0.0, start
+    while t < now:  # exactly 1 kWh per hour = 24 kWh per complete day
+        rows.append((int(t * 1000), v))
+        v += 1
+        t += 3600
+    svc.store.insert_samples(info.id, rows)
+    ingress.post("/api/metrics", json={"name": "Ø Tag", "key": "m_tag", "formula": "sensor.m", "aggregation": "mean"})
+    rng = {"start": midnight - 5 * 86400 - 6 * 3600, "end": now}  # cut-off first day + started today
+    # expected: mean of complete local days, each with 1 kWh per hour (DST days have 23/25 h)
+    days = [midnight - k * 86400 for k in range(5, 0, -1)]
+    lens = []
+    for d0 in days:
+        a = datetime.fromtimestamp(d0, tz).replace(hour=0, minute=0, second=0, microsecond=0)
+        b = datetime.fromtimestamp(d0 + 26 * 3600, tz).replace(hour=0, minute=0, second=0, microsecond=0)
+        lens.append((b.timestamp() - a.timestamp()) / 3600)
+    expected = sum(lens) / len(lens)
+    assert ingress.post("/api/data/scalar", json={"source": {"type": "metric", "id": "m_tag"}, "range": rng}).json()["value"] == pytest.approx(expected)

@@ -4,7 +4,7 @@ import { useRuntime } from '../theme/context'
 import type { BatchResult, DataRequest } from './types'
 
 /** Fetches all data requests of a widget in one batch call and refreshes periodically. */
-export function useWidgetData(requests: DataRequest[], refreshSeconds: number) {
+export function useWidgetData(requests: DataRequest[], refreshSeconds: number, bump = 0) {
   const runtime = useRuntime()
   const key = useMemo(() => JSON.stringify(requests), [requests])
   const [results, setResults] = useState<Record<string, BatchResult>>({})
@@ -54,7 +54,7 @@ export function useWidgetData(requests: DataRequest[], refreshSeconds: number) {
       cancelled = true
       window.clearInterval(t)
     }
-  }, [key, refreshSeconds, runtime.refreshNonce])
+  }, [key, refreshSeconds, runtime.refreshNonce, bump])
 
   return { results, loading }
 }

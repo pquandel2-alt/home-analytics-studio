@@ -119,7 +119,15 @@ def _metric_row(r) -> dict:
 async def list_metrics(request: Request, _: Principal = Depends(share_read)) -> list[dict]:
     svc = services(request)
     with svc.db.read() as conn:
-        return [_metric_row(r) for r in conn.execute(text("SELECT * FROM metrics ORDER BY name")).mappings()]
+        rows = [_metric_row(r) for r in conn.execute(text("SELECT * FROM metrics ORDER BY name")).mappings()]
+    formulas = {r["key"]: r["formula"] for r in rows}
+    constants = svc.engine.constants()
+    for r in rows:
+        try:  # entities the metric depends on – lets widgets refresh as soon as one of them changes
+            r["entities"] = sorted(fx.dependencies(r["formula"], formulas, constants)[0])
+        except fx.FormulaError:
+            r["entities"] = []
+    return rows
 
 
 @router.get("/metrics/functions")

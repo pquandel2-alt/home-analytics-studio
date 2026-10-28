@@ -142,3 +142,19 @@ describe('widget rendering', () => {
     expect(screen.getByText('Übersicht')).toBeInTheDocument()
   })
 })
+
+describe('live refresh dependencies', () => {
+  it('collects entities from sources, slots, metrics and ad-hoc formulas', async () => {
+    const { widgetEntities } = await import('../widgets/liveRefresh')
+    const cfg = {
+      sources: [
+        { type: 'entity', id: 'sensor.a' },
+        { type: 'metric', id: 'kosten' },
+        { type: 'formula', id: 'f', formula: 'sensor.b * 2 + {climate.x::temperature}' },
+      ],
+      slots: { power: { type: 'entity', id: 'sensor.p' } },
+    }
+    expect(widgetEntities(cfg, { kosten: ['sensor.zaehler'] })).toEqual(['climate.x::temperature', 'sensor.a', 'sensor.b', 'sensor.p', 'sensor.zaehler'])
+    expect(widgetEntities({}, null)).toEqual([])
+  })
+})

@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.4.0 – 2026-10-28
+
+- **Echte Live-Aktualisierung aller Kacheln:** Diagramme, Tages-/Monatswerte, Kosten und Kennzahlen rechnen sofort neu, sobald sich einer der beteiligten Sensoren in Home Assistant ändert (bei Kennzahlen alle Sensoren der Formel). Vorher nur im Intervall (60 s). Entprellt, max. alle 5 s je Kachel; abschaltbar je Widget.
+- **Fix Ø-Werte:** Kennzahlen mit Aggregation Mittelwert/Min/Max über mehrere Tage verwenden nur vollständige Tage (bzw. Stunden). Vorher zogen der angebrochene heutige Tag und ein angeschnittener erster Tag den Durchschnitt nach unten (z. B. Ø Tagesverbrauch 17,5 statt 17,8 kWh).
+
 ## 1.3.0 – 2026-10-28
 
 - **Teilen-Fenster:** Ein „Teilen“-Symbol im Dashboard zeigt alle Geräte; ein Tipp auf ein Gerät zeigt das Dashboard dort an. Geeignete, noch nicht verknüpfte Fernseher aus Home Assistant lassen sich direkt hinzufügen. Präsentationslink als Unterpunkt.

@@ -137,7 +137,8 @@ export default function WidgetEditor({ widget, onChange }: { widget: Widget; onC
               <Select value={cfg.interval || 'auto'} onChange={(v) => set('interval', v)} options={INTERVALS} />
             </Field>
           )}
-          <Field label="Aktualisierung (Sekunden)" hint="Live-Werte (Statistik „aktueller Zustand“) aktualisieren sofort">
+          <Switch checked={cfg.liveRefresh !== false} onChange={(v) => set('liveRefresh', v)} label="Sofort neu berechnen, wenn sich ein beteiligter Sensor ändert" />
+          <Field label="Zusätzlich spätestens alle … Sekunden" hint="Live-Werte (Statistik „aktueller Zustand“) aktualisieren ohnehin sofort">
             <NumberInput value={cfg.refresh ?? 60} min={5} max={86400} onChange={(v) => set('refresh', v ?? 60)} />
           </Field>
         </div>

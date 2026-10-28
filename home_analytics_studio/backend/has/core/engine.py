@@ -210,7 +210,15 @@ class DataEngine:
                 edges = bucket_edges(start, end, interval, tz)
                 edges[0] = max(edges[0], start)
                 values = await self.evaluate_formula(formula, edges, interval, now)
-                value = fx.aggregate(values, agg if agg not in (None, "", "auto") else "last")
+                how = agg if agg not in (None, "", "auto") else "last"
+                if how in ("mean", "min", "max"):
+                    # "per day"/"per hour" statistics only over complete periods: a started day (today)
+                    # or a cut-off first day would otherwise distort the average
+                    full_edges = bucket_edges(start, end, interval, tz)
+                    full = [full_edges[i] >= start and full_edges[i + 1] <= end for i in range(len(values))]
+                    if any(full):
+                        values = [v for v, f in zip(values, full) if f]
+                value = fx.aggregate(values, how)
             return {"value": value, "unit": unit, "start": start, "end": end, "coverage": None, "name": name}
         raise SourceError(f"Unbekannter Quelltyp '{stype}'")
 

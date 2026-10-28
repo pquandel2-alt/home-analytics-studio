@@ -5,6 +5,7 @@ import { Spinner } from '../components/ui'
 import { useThemeTokens } from '../theme/context'
 import { shadowFor, withAlpha } from '../theme/presets'
 import { widgetDef } from './registry'
+import { useLiveRefresh } from './liveRefresh'
 import { useWidgetData } from './useWidgetData'
 
 class Boundary extends React.Component<{ children: React.ReactNode; resetKey: string }, { error: Error | null }> {
@@ -64,7 +65,8 @@ export default function WidgetFrame({ widget, editing, selected, chrome = true }
   const { width, height } = useSize(bodyRef)
   const cfg = useMemo(() => ({ ...(def?.defaults || {}), ...widget.config }), [def, widget.config])
   const requests = useMemo(() => (def ? def.requests(cfg) : []), [def, cfg])
-  const { results, loading } = useWidgetData(requests, Number(cfg.refresh) || 60)
+  const bump = useLiveRefresh(cfg, requests.length > 0 && cfg.liveRefresh !== false)
+  const { results, loading } = useWidgetData(requests, Number(cfg.refresh) || 60, bump)
   const st = widget.style || {}
   const transparent = st.background === 'transparent'
   const showTitle = !st.hideTitle && !!widget.title
