@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.7.0 – 2026-10-31
+
+- **Neu: MCP-Server im Add-on** (`/mcp` auf dem Direktport) mit acht Werkzeugen: `analytics_list_dashboards`, `analytics_get_dashboard`, `analytics_create_dashboard`, `analytics_update_dashboard`, `analytics_update_page`, `analytics_list_metrics`, `analytics_get_data`, `analytics_system_status`. Kein Löschen.
+- API-Token und Zugangsschlüssel werden einmalig in der Add-on-Konfiguration (`mcp_api_token`, `mcp_access_key`) hinterlegt; ChatGPT muss nie einen Token senden. Aufrufe laufen intern über die normalen REST-Routen (Rollen, Ablauf, Widerruf, 409-Versionsprüfung unverändert). Tokenwechsel ohne Neustart möglich.
+- Ohne Zugangsschlüssel ist `/mcp` nicht vorhanden; auf Ingress nie erreichbar; Ratenbegrenzung für falsche Schlüssel.
+- Keine Datenbank-Migration, bestehende Daten unverändert. Doku: `docs/API.md`.
+
 ## 1.6.0 – 2026-10-31
 
 - **Neu: API-Tokens.** Alle REST-Endpunkte akzeptieren zusätzlich `Authorization: Bearer <token>`. Tokens werden unter *Einstellungen → Benutzer und Sicherheit → API-Zugänge* (nur Administratoren) erstellt und widerrufen: Name, Benutzer, Rolle (viewer/editor/admin, nie höher als die Benutzerrolle), optionaler Ablauf, Erstellung und letzte Nutzung. Nur der Hash wird gespeichert, der Token wird einmalig angezeigt.

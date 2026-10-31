@@ -11,5 +11,11 @@ configuration:
   trust_proxy_headers:
     name: Trust proxy headers
     description: Evaluate X-Forwarded-For/-Proto of an upstream reverse proxy. Only enable when a proxy is in front.
+  mcp_access_key:
+    name: MCP access key
+    description: Secret (min. 24 characters, e.g. from a password manager) an MCP client such as ChatGPT uses to reach /mcp on the direct port. Empty = MCP disabled.
+  mcp_api_token:
+    name: MCP API token
+    description: Analytics Studio API token (starts with has_, editor role is enough) used by the MCP tools. Enter it here once - it is never output. Create it under Settings → Users and security → API access.
 network:
   8100/tcp: Direct LAN access (login required). Leave empty to disable direct access.

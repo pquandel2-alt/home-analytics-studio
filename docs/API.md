@@ -55,14 +55,76 @@ curl -H "$H" -H 'Content-Type: application/json' \
 curl -H "$H" -H 'Content-Type: application/json' \
   -d '{"source":{"type":"metric","id":"kosten"},"range":"today"}' $B/api/data/scalar
 curl -H "$H" -H 'Content-Type: application/json' \
-  -d '{"sources":[{"type":"metric","id":"kosten"}],"range":"7d"}' $B/api/data/series
-curl -H "$H" -H 'Content-Type: application/json' -d '{"sources":[...],"range":"30d"}' $B/api/analysis/run
+  -d '{"source":{"type":"metric","id":"kosten"},"range":"last_7d"}' $B/api/data/series
+curl -H "$H" -H 'Content-Type: application/json' -d '{"sources":[...],"range":"last_30d"}' $B/api/analysis/run
 ```
 
 Fehler: `401` Token ungültig/abgelaufen/widerrufen (Header `WWW-Authenticate: Bearer`), `403` Rolle reicht nicht,
 `409` veraltete Seiten-`version`.
 
-## ChatGPT über Home Assistant MCP
+## MCP-Anbindung für ChatGPT (seit 1.7.0)
+
+### Architektur und Blocker
+
+Der vorhandene Home-Assistant-MCP-Server (Add-on „HA MCP“ v9.0.0) hat eine **feste Werkzeugliste** und bietet keinen
+Erweiterungsmechanismus für fremde Add-ons; ihn zu patchen wäre nicht updatefest. Darum bringt **Analytics Studio
+seinen eigenen MCP-Endpunkt mit** (`/mcp`, Streamable HTTP, zustandslos) – ohne Fremdcode zu ändern. Konsequenz: Das ist ein
+**zweiter Connector** neben dem HA-MCP (einmalig in ChatGPT hinzufügen); die Werkzeuge erscheinen danach in jeder
+neuen Unterhaltung. In den bestehenden HA-MCP-Connector lassen sie sich nicht injizieren.
+Außerdem muss der Direktport 8100 für ChatGPT erreichbar sein – auf demselben Weg, auf dem der HA-MCP erreichbar ist
+(z. B. Cloudflare-Tunnel/Reverse Proxy mit HTTPS auf `homeassistant:8100`). **Dieser Erreichbarkeits-Schritt konnte in
+der Entwicklungsumgebung nicht getestet werden** (keine Home-Assistant-Instanz, kein ChatGPT-Zugriff); Protokoll,
+Sicherheit und Neustartverhalten sind automatisiert getestet (`tests/test_mcp.py`).
+
+### Wo der Token einmalig eingetragen wird
+
+Es gibt zwei Geheimnisse, beide **nur** in der Add-on-Konfiguration (*Einstellungen → Add-ons → Home Analytics Studio →
+Konfiguration*, Supervisor-geschützt, nicht im Git-Repository, nicht in Backups des Datenbestands):
+
+| Feld | Inhalt | Zweck |
+|---|---|---|
+| `mcp_api_token` | Analytics-Studio-API-Token `has_…` | wird von den Werkzeugen intern verwendet |
+| `mcp_access_key` | frei gewählter Zufallsschlüssel, mind. 24 Zeichen | schützt den Endpunkt `/mcp` (ChatGPT → Add-on) |
+
+Schritte:
+
+1. In Analytics Studio (Ingress) einen Benutzer `chatgpt` mit Rolle **Bearbeiter** anlegen.
+2. *Einstellungen → Benutzer und Sicherheit → API-Zugänge* → Token für diesen Benutzer erstellen (Rolle Bearbeiter, z. B.
+   90 Tage) und **einmalig kopieren**.
+3. Add-on-Konfiguration öffnen, Token bei `mcp_api_token` einfügen, bei `mcp_access_key` einen Zufallsschlüssel eintragen
+   (z. B. `openssl rand -hex 24`), *Speichern*, Add-on neu starten.
+4. In ChatGPT einen neuen MCP-Connector anlegen: URL `https://<extern-erreichbare-Adresse>/mcp/<mcp_access_key>`
+   (alternativ `…/mcp` mit Header `Authorization: Bearer <mcp_access_key>`, falls der Client Header setzen kann),
+   Authentifizierung „keine“.
+5. Neue Unterhaltung: „Rufe analytics_system_status auf“ – die Antwort zeigt Rolle und Art des Zugriffs (nie den Token).
+
+**Den Token nie in ChatGPT einfügen** – er wird dort nicht mehr gebraucht.
+
+### Werkzeuge
+
+`analytics_list_dashboards`, `analytics_get_dashboard`, `analytics_create_dashboard`, `analytics_update_dashboard`,
+`analytics_update_page`, `analytics_list_metrics`, `analytics_get_data` (scalar/series), `analytics_system_status`.
+Es gibt bewusst **kein Löschen**. `analytics_update_page` prüft die Seiten-`version` (409 statt Überschreiben).
+Zeiträume: `today`, `yesterday`, `last_24h`, `last_7d`, `last_30d`, `this_week`, `this_month`, … (Kurzform `7d` ok).
+
+### Sicherheit
+
+* Jeder Werkzeugaufruf läuft intern über **dieselben REST-Routen** mit dem hinterlegten Bearer-Token: Rollen, Ablauf,
+  Widerruf und Herabstufung gelten unverändert (Bearbeiter genügt; ein Viewer-Token kann nur lesen, nie Admin-Funktionen).
+* Der Token steht nur in `/data/options.json` des Add-ons; er erscheint nicht in Werkzeugdefinitionen, Antworten
+  (zusätzlich ersetzt ein Filter jedes Vorkommen), Fehlermeldungen oder Protokollen (geloggt werden nur Werkzeugname und Status).
+* `/mcp` existiert nur mit gesetztem Zugangsschlüssel (sonst 404), nur auf dem Direktport (auf Ingress immer 404),
+  Vergleich in konstanter Zeit, Begrenzung falscher Versuche pro IP (429).
+  Der Schlüssel im Pfad kann in Proxy-Zugriffsprotokollen auftauchen – dort Pfade maskieren oder, wenn der Client es kann,
+  den Header-Weg nutzen. Immer HTTPS verwenden, sobald der Port außerhalb des LAN erreichbar ist.
+* **Tokenwechsel:** neuen Token erstellen, bei `mcp_api_token` ersetzen, alten widerrufen. Die Datei wird bei jedem Aufruf
+  neu gelesen; die Werkzeuge liefern bis zur Übernahme eine verständliche Fehlermeldung (kein Absturz).
+  **Widerruf** (API-Zugänge → Widerrufen) sperrt die Werkzeuge sofort. Zugangsschlüssel wechseln: Feld ändern und die
+  Connector-URL in ChatGPT anpassen; MCP komplett abschalten: `mcp_access_key` leeren.
+* Neustart: nichts liegt im Arbeitsspeicher oder in Sitzungen – der Server ist zustandslos, Schlüssel und Token stehen in
+  den Add-on-Optionen. Getestet inkl. echtem Prozess-Neustart.
+
+## Alternative: Bearer-Header über den HA-MCP-Proxy (Stand 1.6.0)
 
 Einrichtung:
 

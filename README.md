@@ -80,7 +80,7 @@ VENV=$PWD/.venv scripts/dev-run.sh      # UI: http://localhost:18099
 scripts/release-check.sh               # Tests + Frontend-Build + docker build
 ```
 
-Weitere Dokumentation: [REST-API & Tokens](docs/API.md) · [Technische Dokumentation](docs/TECHNICAL.md) · [Tests & Ergebnisse](docs/TESTING.md) ·
+Weitere Dokumentation: [REST-API, Tokens & MCP für ChatGPT](docs/API.md) · [Technische Dokumentation](docs/TECHNICAL.md) · [Tests & Ergebnisse](docs/TESTING.md) ·
 [Entwicklungsstatus](DEVELOPMENT_STATUS.md)
 
 ## Lizenz

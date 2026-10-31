@@ -178,6 +178,10 @@ wird nur einmal angezeigt, ist an Benutzer und Rolle gebunden, kann ablaufen und
 Verwendung: Header `Authorization: Bearer <token>` an die normale REST-API (Direktport 8100). Details und
 Beispiele: `docs/API.md` im Repository.
 
+**MCP für ChatGPT (ab 1.7.0):** Den API-Token einmalig im Add-on unter *Konfiguration → MCP-API-Token* eintragen (und einen
+Zufallsschlüssel bei *MCP-Zugangsschlüssel*); ChatGPT nutzt dann `https://<Adresse>/mcp/<Zugangsschlüssel>` ohne je einen
+Token zu sehen. Schritt-für-Schritt: `docs/API.md`, Abschnitt „MCP-Anbindung für ChatGPT“.
+
 ## Mit ChatGPT analysieren
 
 Unter **ChatGPT-Export** Datenquellen, Zeitraum und Schwerpunkt wählen → *Auswertung & Prompt erstellen* →

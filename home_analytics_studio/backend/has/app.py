@@ -10,6 +10,7 @@ from fastapi.exceptions import RequestValidationError
 from fastapi.responses import FileResponse, JSONResponse, Response
 from starlette.middleware.gzip import GZipMiddleware
 
+from . import mcp
 from .api import routes_auth, routes_dashboards, routes_data, routes_displays, routes_entities, routes_system
 from .api.deps import resolve_principal
 from .config import VERSION, Config, load_config
@@ -60,6 +61,7 @@ def create_app(config: Config | None = None, start_background: bool = True) -> F
 
     for r in (routes_auth, routes_entities, routes_data, routes_dashboards, routes_displays, routes_system):
         app.include_router(r.router)
+    app.include_router(mcp.router)
 
     @app.get("/api/health")
     async def health(request: Request) -> dict:

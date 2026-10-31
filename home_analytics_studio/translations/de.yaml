@@ -11,5 +11,11 @@ configuration:
   trust_proxy_headers:
     name: Proxy-Header vertrauen
     description: X-Forwarded-For/-Proto eines vorgeschalteten Reverse Proxys auswerten. Nur aktivieren, wenn ein Proxy davorsteht.
+  mcp_access_key:
+    name: MCP-Zugangsschlüssel
+    description: Geheimer Schlüssel (mind. 24 Zeichen, z. B. aus einem Passwortmanager), mit dem sich ein MCP-Client (z. B. ChatGPT) am Endpunkt /mcp auf dem Direktport anmeldet. Leer = MCP deaktiviert.
+  mcp_api_token:
+    name: MCP-API-Token
+    description: Analytics-Studio-API-Token (beginnt mit has_, Rolle Bearbeiter genügt), den die MCP-Werkzeuge verwenden. Einmal hier eintragen – er wird nie ausgegeben. Erstellen unter Einstellungen → Benutzer und Sicherheit → API-Zugänge.
 network:
   8100/tcp: Direkter Zugriff im lokalen Netzwerk (Anmeldung erforderlich). Leer lassen, um den Direktzugriff zu deaktivieren.
