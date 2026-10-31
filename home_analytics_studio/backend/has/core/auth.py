@@ -14,6 +14,7 @@ from ..db import Database
 
 ROLES = ("viewer", "editor", "admin")
 ROLE_LEVEL = {r: i for i, r in enumerate(ROLES)}
+TOKEN_PREFIX = "has_"
 
 
 def hash_token(token: str) -> str:
@@ -43,19 +44,21 @@ class Principal:
     user_id: int | None
     username: str
     role: str
-    kind: str  # login | ingress | share
+    kind: str  # login | ingress | share | api
     share_dashboard_id: int | None = None
     csrf: str | None = None
     session_hash: str | None = None
     display_id: int | None = None
     display_paired: bool = False
+    token_id: int | None = None
 
     def has(self, role: str) -> bool:
         return ROLE_LEVEL.get(self.role, -1) >= ROLE_LEVEL[role]
 
     def as_dict(self) -> dict:
         return {"id": self.user_id, "username": self.username, "role": self.role, "kind": self.kind,
-                "share_dashboard_id": self.share_dashboard_id, "display_id": self.display_id}
+                "share_dashboard_id": self.share_dashboard_id, "display_id": self.display_id,
+                "token_id": self.token_id}
 
 
 class RateLimiter:
@@ -148,6 +151,7 @@ class AuthService:
             if row[0] == "admin" and self._admin_count(conn) <= 1:
                 raise ValueError("Der letzte Administrator kann nicht gelöscht werden")
             conn.execute(text("DELETE FROM sessions WHERE user_id=:i"), {"i": user_id})
+            conn.execute(text("DELETE FROM api_tokens WHERE user_id=:i"), {"i": user_id})
             conn.execute(text("DELETE FROM users WHERE id=:i"), {"i": user_id})
 
     def authenticate(self, username: str, password: str) -> dict | None:
@@ -216,6 +220,80 @@ class AuthService:
         with self.db.write() as conn:
             res = conn.execute(text("DELETE FROM sessions WHERE expires_at<:n"), {"n": time.time()})
             return res.rowcount or 0
+
+    # ------------------------------------------------------------------ API tokens
+
+    def create_api_token(self, name: str, user_id: int, role: str | None, created_by: int | None,
+                         days: float | None) -> dict:
+        name = (name or "").strip()
+        if not name or len(name) > 80:
+            raise ValueError("Ungültiger Tokenname")
+        if days is not None and not (0 < days <= 3650):
+            raise ValueError("Ungültige Gültigkeitsdauer")
+        with self.db.write() as conn:
+            user = conn.execute(text("SELECT id, username, role FROM users WHERE id=:i"), {"i": user_id}).mappings().first()
+            if not user:
+                raise KeyError("Benutzer nicht gefunden")
+            role = role or user["role"]
+            if role not in ROLES:
+                raise ValueError("Ungültige Rolle")
+            if ROLE_LEVEL[role] > ROLE_LEVEL[user["role"]]:
+                raise ValueError("Die Token-Rolle darf die Rolle des Benutzers nicht übersteigen")
+            token = TOKEN_PREFIX + secrets.token_urlsafe(32)
+            now = time.time()
+            res = conn.execute(text(
+                "INSERT INTO api_tokens(name, token_hash, token_hint, user_id, role, created_by, created_at, expires_at)"
+                " VALUES (:n, :h, :hint, :u, :r, :c, :t, :e)"),
+                {"n": name, "h": hash_token(token), "hint": token[-4:], "u": user_id, "r": role, "c": created_by,
+                 "t": now, "e": now + days * 86400 if days else None})
+        return {"id": res.lastrowid, "token": token, "name": name, "user_id": user_id, "username": user["username"],
+                "role": role, "expires_at": now + days * 86400 if days else None}
+
+    def list_api_tokens(self) -> list[dict]:
+        with self.db.read() as conn:
+            rows = conn.execute(text(
+                "SELECT t.id, t.name, t.token_hint, t.user_id, u.username, t.role, t.created_at, t.expires_at,"
+                " t.last_used, t.revoked_at FROM api_tokens t LEFT JOIN users u ON u.id=t.user_id"
+                " ORDER BY t.id DESC")).mappings().all()
+        now = time.time()
+        out = []
+        for r in rows:
+            d = dict(r)
+            d["status"] = "revoked" if d["revoked_at"] else "expired" if d["expires_at"] and d["expires_at"] < now else "active"
+            out.append(d)
+        return out
+
+    def revoke_api_token(self, token_id: int) -> None:
+        with self.db.write() as conn:
+            res = conn.execute(text("UPDATE api_tokens SET revoked_at=:n WHERE id=:i AND revoked_at IS NULL"),
+                               {"n": time.time(), "i": token_id})
+            if not res.rowcount and not conn.execute(text("SELECT 1 FROM api_tokens WHERE id=:i"), {"i": token_id}).first():
+                raise KeyError("Token nicht gefunden")
+
+    def delete_api_token(self, token_id: int) -> None:
+        with self.db.write() as conn:
+            conn.execute(text("DELETE FROM api_tokens WHERE id=:i"), {"i": token_id})
+
+    def api_token_principal(self, token: str) -> Principal | None:
+        """Validate a bearer token. Returns None for unknown, revoked or expired tokens (callers answer 401)."""
+        if not token or not token.startswith(TOKEN_PREFIX) or len(token) > 200:
+            return None
+        now = time.time()
+        with self.db.read() as conn:
+            row = conn.execute(text(
+                "SELECT t.id, t.role AS trole, t.expires_at, t.revoked_at, t.last_used, u.id AS uid, u.username, u.role AS urole"
+                " FROM api_tokens t JOIN users u ON u.id=t.user_id WHERE t.token_hash=:h"),
+                {"h": hash_token(token)}).mappings().first()
+        if not row or row["revoked_at"] or (row["expires_at"] and row["expires_at"] <= now):
+            return None
+        if now - (row["last_used"] or 0) > 60:
+            with self.db.write() as conn:
+                conn.execute(text("UPDATE api_tokens SET last_used=:n WHERE id=:i"), {"n": now, "i": row["id"]})
+        # never more than the token's own role, never more than the user currently holds (demotion applies at once)
+        role = row["trole"] if ROLE_LEVEL.get(row["trole"], -1) <= ROLE_LEVEL.get(row["urole"], -1) else row["urole"]
+        if role not in ROLE_LEVEL:
+            return None
+        return Principal(row["uid"], row["username"], role, "api", token_id=row["id"])
 
     # ------------------------------------------------------------------ share links
 

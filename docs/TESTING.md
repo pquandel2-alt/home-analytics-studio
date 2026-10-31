@@ -7,7 +7,7 @@ x86_64, Ubuntu 24.04, Python 3.12, Node 18, Docker mit BuildKit).
 
 | Bereich | Werkzeug | Ergebnis |
 |---|---|---|
-| Backend-Unit/DB/API/Integration | pytest (107 Tests) | **107 bestanden** |
+| Backend-Unit/DB/API/Integration | pytest (120 Tests) | **120 bestanden** |
 | Frontend (Editor-Store, Widgets, Formel-Builder, Formatierung, Markdown-Sicherheit, Szenen-Rechner/Sandbox) | vitest (35 Tests) | **35 bestanden** |
 | TypeScript-Typprüfung | `tsc -b` | fehlerfrei |
 | Produktions-Build Frontend | `vite build` | erfolgreich |

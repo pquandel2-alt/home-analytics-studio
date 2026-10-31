@@ -33,7 +33,21 @@ def is_ingress(conn: Request | WebSocket, svc: Services) -> bool:
     return peer in svc.config.ingress_trusted_ips
 
 
+def bearer_token(conn: Request | WebSocket) -> str | None:
+    """Token from `Authorization: Bearer <token>`; None if the header is absent or not a bearer one."""
+    header = conn.headers.get("authorization") or ""
+    scheme, _, value = header.partition(" ")
+    if scheme.lower() != "bearer":
+        return None
+    return value.strip()
+
+
 def resolve_principal(conn: Request | WebSocket, svc: Services) -> Principal | None:
+    # an explicit bearer token is authoritative: it never falls back to ingress/cookie rights
+    # (no implicit admin), and an invalid/expired/revoked one is simply unauthenticated -> 401
+    bearer = bearer_token(conn)
+    if bearer is not None:
+        return svc.auth.api_token_principal(bearer)
     # explicit device tokens take precedence: a TV/presentation link always gets its
     # restricted read-only rights, even when it happens to come in via the ingress port
     display = conn.headers.get("x-display-token") or conn.query_params.get("display")
@@ -59,11 +73,12 @@ async def current_principal(request: Request) -> Principal:
         principal = resolve_principal(request, svc)
         request.state.principal = principal
     if principal is None:
-        raise HTTPException(401, "Anmeldung erforderlich")
+        raise HTTPException(401, "Anmeldung erforderlich", headers={"WWW-Authenticate": "Bearer"})
     if principal.kind == "display" and not getattr(principal, "display_paired", False) \
             and not request.url.path.endswith(("/api/displays/me", "/api/auth/status", "/api/appearance")):
         raise HTTPException(403, "Bildschirm ist noch nicht gekoppelt")
-    if request.method in MUTATING:
+    if request.method in MUTATING and principal.kind != "api":
+        # bearer tokens are not sent by browsers on their own -> no CSRF surface, no cookie/CSRF header needed
         # custom header forces a CORS preflight -> blocks cross-site form posts
         if request.headers.get("x-requested-with") != "has":
             raise HTTPException(403, "Ungültige Anfrage (CSRF-Schutz)")

@@ -4,7 +4,7 @@ export interface User {
   id: number | null
   username: string
   role: Role
-  kind: 'login' | 'ingress' | 'share'
+  kind: 'login' | 'ingress' | 'share' | 'api'
   share_dashboard_id: number | null
 }
 

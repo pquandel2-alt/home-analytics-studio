@@ -376,6 +376,9 @@ function Security({ settings, reload }: { settings: Settings; reload: () => void
   const { data: users, reload: reloadUsers } = useAsync(() => api.get<any[]>('auth/users'), [])
   const { data: shares, reload: reloadShares } = useAsync(() => api.get<any[]>('auth/shares'), [])
   const [newUser, setNewUser] = useState<{ username: string; password: string; role: string } | null>(null)
+  const { data: tokens, reload: reloadTokens } = useAsync(() => (me?.kind === 'api' ? Promise.resolve([] as any[]) : api.get<any[]>('auth/tokens')), [])
+  const [newToken, setNewToken] = useState<{ name: string; user_id: number | ''; role: string; days: string } | null>(null)
+  const [createdToken, setCreatedToken] = useState<{ token: string; name: string } | null>(null)
   const [pw, setPw] = useState({ current: '', new: '' })
   return (
     <div className="space-y-6">
@@ -468,6 +471,106 @@ function Security({ settings, reload }: { settings: Settings; reload: () => void
           </tbody>
         </table>
       </Card>
+      <Card
+        title="API-Zugänge"
+        actions={<Button size="sm" onClick={() => setNewToken({ name: '', user_id: users?.[0]?.id ?? '', role: '', days: '90' })}>Token erstellen</Button>}
+        bodyClass="p-0"
+      >
+        <p className="px-5 pt-4 text-xs text-muted">
+          Persönliche Zugangs-Tokens für Programme und KI-Assistenten (Header <code>Authorization: Bearer …</code>). Ein Token gilt höchstens mit der Rolle seines Benutzers; Widerruf wirkt sofort. Der Token wird nur bei der Erstellung angezeigt.
+        </p>
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="text-left text-[11px] uppercase tracking-wider text-muted">
+                <th className="px-5 py-2">Name</th><th className="px-2 py-2">Benutzer</th><th className="px-2 py-2">Rolle</th><th className="px-2 py-2">Erstellt</th><th className="px-2 py-2">Läuft ab</th><th className="px-2 py-2">Zuletzt genutzt</th><th />
+              </tr>
+            </thead>
+            <tbody>
+              {tokens?.map((t) => (
+                <tr key={t.id} className="border-t border-line/30">
+                  <td className="px-5 py-2">{t.name} <span className="text-xs text-muted">…{t.token_hint}</span></td>
+                  <td className="px-2 py-2">{t.username ?? '–'}</td>
+                  <td className="px-2 py-2 text-xs">{{ admin: 'Administrator', editor: 'Bearbeiter', viewer: 'Betrachter' }[t.role as string] ?? t.role}</td>
+                  <td className="px-2 py-2 text-xs text-muted">{formatTs(t.created_at)}</td>
+                  <td className="px-2 py-2 text-xs text-muted">
+                    {t.status === 'revoked' ? <Badge>widerrufen</Badge> : t.status === 'expired' ? <Badge>abgelaufen</Badge> : t.expires_at ? formatTs(t.expires_at) : 'nie'}
+                  </td>
+                  <td className="px-2 py-2 text-xs text-muted">{t.last_used ? formatAge(t.last_used) : 'nie'}</td>
+                  <td className="px-3 py-2 text-right">
+                    {t.status === 'active' ? (
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        onClick={async () => {
+                          if (!(await confirmDialog('Token widerrufen', `„${t.name}“ sofort widerrufen?`, { danger: true }))) return
+                          try { await api.del(`auth/tokens/${t.id}`); reloadTokens() } catch (e) { toast.error(e) }
+                        }}
+                      >
+                        Widerrufen
+                      </Button>
+                    ) : (
+                      <Button size="sm" variant="ghost" onClick={async () => { try { await api.del(`auth/tokens/${t.id}/entry`); reloadTokens() } catch (e) { toast.error(e) } }}>Entfernen</Button>
+                    )}
+                  </td>
+                </tr>
+              ))}
+              {!tokens?.length && <tr><td className="p-5 text-sm text-muted">Keine API-Zugänge.</td></tr>}
+            </tbody>
+          </table>
+        </div>
+      </Card>
+      <Modal
+        open={!!newToken}
+        onClose={() => setNewToken(null)}
+        title="API-Token erstellen"
+        size="sm"
+        footer={
+          <Button
+            variant="primary"
+            onClick={async () => {
+              if (!newToken || newToken.user_id === '') return
+              try {
+                const res = await api.post<any>('auth/tokens', {
+                  name: newToken.name,
+                  user_id: newToken.user_id,
+                  role: newToken.role || null,
+                  days: newToken.days ? Number(newToken.days) : null,
+                })
+                setNewToken(null)
+                setCreatedToken({ token: res.token, name: res.name })
+                reloadTokens()
+              } catch (e) {
+                toast.error(e)
+              }
+            }}
+          >
+            Erstellen
+          </Button>
+        }
+      >
+        {newToken && (
+          <div className="space-y-3">
+            <Field label="Name" hint="z. B. ChatGPT"><Input value={newToken.name} onChange={(e) => setNewToken({ ...newToken, name: e.target.value })} /></Field>
+            <Field label="Benutzer">
+              <Select value={String(newToken.user_id)} onChange={(v) => setNewToken({ ...newToken, user_id: Number(v) })} options={(users ?? []).map((u) => ({ value: String(u.id), label: `${u.username} (${u.role})` }))} />
+            </Field>
+            <Field label="Rolle" hint="höchstens die Rolle des Benutzers">
+              <Select value={newToken.role} onChange={(v) => setNewToken({ ...newToken, role: v })} options={[{ value: '', label: 'Rolle des Benutzers' }, { value: 'viewer', label: 'Betrachter' }, { value: 'editor', label: 'Bearbeiter' }, { value: 'admin', label: 'Administrator' }]} />
+            </Field>
+            <Field label="Gültigkeit in Tagen" hint="leer = läuft nie ab"><Input value={newToken.days} onChange={(e) => setNewToken({ ...newToken, days: e.target.value.replace(/[^0-9.]/g, '') })} /></Field>
+          </div>
+        )}
+      </Modal>
+      <Modal open={!!createdToken} onClose={() => setCreatedToken(null)} title="Token erstellt" size="sm" footer={<Button variant="primary" onClick={() => setCreatedToken(null)}>Fertig</Button>}>
+        {createdToken && (
+          <div className="space-y-3 text-sm">
+            <p><b>Jetzt kopieren – der Token wird nicht erneut angezeigt.</b></p>
+            <code className="block select-all break-all rounded bg-black/20 p-3 text-xs">{createdToken.token}</code>
+            <Button size="sm" onClick={() => navigator.clipboard?.writeText(createdToken.token).then(() => toast.ok('Kopiert'), () => toast.error('Kopieren nicht möglich'))}>Kopieren</Button>
+          </div>
+        )}
+      </Modal>
       <Modal
         open={!!newUser}
         onClose={() => setNewUser(null)}

@@ -75,6 +75,22 @@ share_links = Table(
     Column("last_used", Float),
 )
 
+api_tokens = Table(
+    "api_tokens",
+    metadata,
+    Column("id", Integer, primary_key=True),
+    Column("name", Text, nullable=False),
+    Column("token_hash", Text, nullable=False, unique=True),  # sha256 only, never the token itself
+    Column("token_hint", Text),
+    Column("user_id", Integer, nullable=False),
+    Column("role", Text, nullable=False),  # cap: effective role = min(token role, current user role)
+    Column("created_by", Integer),
+    Column("created_at", Float, nullable=False),
+    Column("expires_at", Float),
+    Column("last_used", Float),
+    Column("revoked_at", Float),
+)
+
 entities = Table(
     "entities",
     metadata,
@@ -286,6 +302,12 @@ def _m7_launch_mode(conn: Connection) -> None:
             conn.execute(text(f"ALTER TABLE displays ADD COLUMN {name} TEXT"))
 
 
+def _m8_api_tokens(conn: Connection) -> None:
+    # additive only: creates a new table, touches no existing data
+    api_tokens.create(conn, checkfirst=True)
+    conn.execute(text("CREATE INDEX IF NOT EXISTS ix_api_tokens_user ON api_tokens(user_id)"))
+
+
 MIGRATIONS: list[tuple[int, str, Migration]] = [
     (1, "initial schema", _m1_initial),
     (2, "secondary indexes", _m2_indexes),
@@ -294,6 +316,7 @@ MIGRATIONS: list[tuple[int, str, Migration]] = [
     (5, "remote displays", _m5_displays),
     (6, "tv remote launch", _m6_tv_launch),
     (7, "tv launch mode", _m7_launch_mode),
+    (8, "personal API tokens", _m8_api_tokens),
 ]
 
 SCHEMA_VERSION = MIGRATIONS[-1][0]

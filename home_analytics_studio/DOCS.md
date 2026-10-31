@@ -170,6 +170,14 @@ Spitzenzeitfenster („Dienstag zwischen 18 und 20 Uhr“), Tages- und Wochenpro
 (lineare Regression mit R²), auffällige Tage (gleitender Z-Wert, Sommerzeit-bereinigt), freier
 Zeitraumvergleich. Unvollständige Daten werden gekennzeichnet und bei Extremwerten nicht berücksichtigt.
 
+## API-Zugänge (Tokens)
+
+Unter **Einstellungen → Benutzer und Sicherheit → API-Zugänge** erstellen Administratoren persönliche Tokens für
+Programme und KI-Assistenten (z. B. ChatGPT über Home-Assistant-MCP mit einem eigenen *Bearbeiter*-Token). Der Token
+wird nur einmal angezeigt, ist an Benutzer und Rolle gebunden, kann ablaufen und jederzeit widerrufen werden.
+Verwendung: Header `Authorization: Bearer <token>` an die normale REST-API (Direktport 8100). Details und
+Beispiele: `docs/API.md` im Repository.
+
 ## Mit ChatGPT analysieren
 
 Unter **ChatGPT-Export** Datenquellen, Zeitraum und Schwerpunkt wählen → *Auswertung & Prompt erstellen* →

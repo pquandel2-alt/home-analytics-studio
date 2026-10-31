@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.6.0 – 2026-10-31
+
+- **Neu: API-Tokens.** Alle REST-Endpunkte akzeptieren zusätzlich `Authorization: Bearer <token>`. Tokens werden unter *Einstellungen → Benutzer und Sicherheit → API-Zugänge* (nur Administratoren) erstellt und widerrufen: Name, Benutzer, Rolle (viewer/editor/admin, nie höher als die Benutzerrolle), optionaler Ablauf, Erstellung und letzte Nutzung. Nur der Hash wird gespeichert, der Token wird einmalig angezeigt.
+- Kein zweiter API-Pfad: ein Bearer-Token nutzt dieselben Rollenprüfungen (401 ungültig/abgelaufen/widerrufen, 403 Rolle). Ein ungültiger Bearer-Header fällt nicht auf Ingress zurück. Tokens können keine Tokens verwalten. Cookie-Sitzungen, Ingress und CSRF-Schutz unverändert.
+- Datenbank-Migration 8 (nur neue Tabelle `api_tokens`, keine bestehenden Daten werden verändert).
+- Dokumentation mit Beispielen: `docs/API.md`.
+
 ## 1.5.0 – 2026-10-28
 
 - **Neu: Animierte Szenen.** Drei neue Widgets:

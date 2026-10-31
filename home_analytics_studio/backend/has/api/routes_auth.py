@@ -6,6 +6,7 @@ from fastapi import APIRouter, Depends, HTTPException, Request, Response
 from pydantic import BaseModel
 
 from ..core.auth import Principal
+from .routes_system import _audit as audit
 from .deps import SESSION_COOKIE, admin, client_ip, editor, is_ingress, resolve_principal, services, viewer
 
 router = APIRouter(prefix="/api/auth", tags=["auth"])
@@ -33,6 +34,13 @@ class UserPatch(BaseModel):
     role: str | None = None
     password: str | None = None
     display_name: str | None = None
+
+
+class TokenBody(BaseModel):
+    name: str
+    user_id: int
+    role: str | None = None  # defaults to the user's role; may be lower, never higher
+    days: float | None = None  # None = never expires
 
 
 class ShareBody(BaseModel):
@@ -198,4 +206,51 @@ async def create_share(body: ShareBody, request: Request, principal: Principal =
 @router.delete("/shares/{share_id}")
 async def delete_share(share_id: int, request: Request, _: Principal = Depends(editor)) -> dict:
     services(request).auth.delete_share(share_id)
+    return {"ok": True}
+
+
+# ---------------------------------------------------------------- API tokens (admin only, never via a token itself)
+
+
+def _admin_session(principal: Principal = Depends(admin)) -> Principal:
+    if principal.kind == "api":
+        raise HTTPException(403, "API-Tokens können nur mit einer Anmeldung verwaltet werden")
+    return principal
+
+
+@router.get("/tokens")
+async def list_tokens(request: Request, _: Principal = Depends(_admin_session)) -> list[dict]:
+    return services(request).auth.list_api_tokens()
+
+
+@router.post("/tokens")
+async def create_token(body: TokenBody, request: Request, principal: Principal = Depends(_admin_session)) -> dict:
+    svc = services(request)
+    try:
+        res = svc.auth.create_api_token(body.name, body.user_id, body.role, principal.user_id, body.days)
+    except KeyError as err:
+        raise HTTPException(404, str(err)) from err
+    except ValueError as err:
+        raise HTTPException(400, str(err)) from err
+    audit(svc, principal, "token.create", f"#{res['id']} {res['name']} ({res['username']}, {res['role']})")
+    return res  # the only time the full token is returned
+
+
+@router.delete("/tokens/{token_id}")
+async def revoke_token(token_id: int, request: Request, principal: Principal = Depends(_admin_session)) -> dict:
+    svc = services(request)
+    try:
+        svc.auth.revoke_api_token(token_id)
+    except KeyError as err:
+        raise HTTPException(404, str(err)) from err
+    audit(svc, principal, "token.revoke", f"#{token_id}")
+    return {"ok": True}
+
+
+@router.delete("/tokens/{token_id}/entry")
+async def delete_token(token_id: int, request: Request, principal: Principal = Depends(_admin_session)) -> dict:
+    """Remove a (revoked/expired) token from the list."""
+    svc = services(request)
+    svc.auth.delete_api_token(token_id)
+    audit(svc, principal, "token.delete", f"#{token_id}")
     return {"ok": True}
