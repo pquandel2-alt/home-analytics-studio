@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 1.7.1 – 2026-11-01
 
 - Fix: Präsentationslinks – der Freigabeschlüssel wird jetzt bei jeder Anfrage/WebSocket-Verbindung synchron aus der URL ermittelt (kein Effekt-Timing mehr), pro Dashboard gemerkt (kein Wiederverwenden für ein anderes Dashboard), auch `?share=` vor dem `#` wird akzeptiert, und fehlendes/blockiertes `sessionStorage` (Privatmodus, TV-Browser) bricht die App nicht mehr ab.
 - Hinweis im Freigabe-Dialog, wenn der Link über Home-Assistant-Ingress erzeugt wurde (auf anderen Geräten nicht nutzbar).
