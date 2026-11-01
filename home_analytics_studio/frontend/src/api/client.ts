@@ -1,7 +1,6 @@
 // Thin fetch wrapper. All URLs are relative so the app works behind HA ingress / reverse proxies.
 
 let csrfToken: string | null = null
-let shareToken: string | null = null
 let displayToken: string | null = null
 
 export function setDisplayToken(token: string | null) {
@@ -12,12 +11,52 @@ export function setCsrf(token: string | null) {
   csrfToken = token
 }
 
-export function setShareToken(token: string | null) {
-  shareToken = token
+const SHARE_PREFIX = 'has-share:'
+
+function storage(): Storage | null {
+  // Safari private mode, some TV browsers and blocked-cookie setups throw on any access
+  try {
+    return window.sessionStorage
+  } catch {
+    return null
+  }
 }
 
-export function getShareToken() {
-  return shareToken
+/** Dashboard id and share token of the current URL (`#/present/<id>?share=…`). Pure function of the location. */
+export function parseShareLocation(hash: string, search: string): { dashboardId: number | null; token: string | null } {
+  const h = hash.replace(/^#/, '')
+  const q = h.indexOf('?')
+  const path = q >= 0 ? h.slice(0, q) : h
+  const m = /^\/present\/(\d+)\/?$/.exec(path)
+  if (!m) return { dashboardId: null, token: null }
+  // the token normally sits behind the hash; links whose query landed before the `#` are accepted too
+  const token = new URLSearchParams(q >= 0 ? h.slice(q + 1) : '').get('share') || new URLSearchParams(search).get('share')
+  return { dashboardId: Number(m[1]), token: token || null }
+}
+
+/**
+ * Share token for the *current* presentation URL. Resolved synchronously from `location` on every call, so the very
+ * first request/websocket of a page load carries it no matter how React effects are ordered. The token is remembered
+ * per dashboard (sessionStorage, best effort) so reloads without the parameter keep working and a token is never
+ * applied to another dashboard.
+ */
+export function getShareToken(): string | null {
+  const { dashboardId, token } = parseShareLocation(window.location.hash, window.location.search)
+  if (dashboardId === null) return null
+  const store = storage()
+  if (token) {
+    try {
+      store?.setItem(SHARE_PREFIX + dashboardId, token)
+    } catch {
+      /* storage unavailable: the URL itself still carries the token */
+    }
+    return token
+  }
+  try {
+    return store?.getItem(SHARE_PREFIX + dashboardId) || null
+  } catch {
+    return null
+  }
 }
 
 export class ApiError extends Error {
@@ -38,7 +77,8 @@ export function apiUrl(path: string): string {
 function headers(extra?: Record<string, string>): Record<string, string> {
   const h: Record<string, string> = { 'X-Requested-With': 'has', ...extra }
   if (csrfToken) h['X-CSRF-Token'] = csrfToken
-  if (shareToken) h['X-Share-Token'] = shareToken
+  const share = getShareToken()
+  if (share) h['X-Share-Token'] = share
   if (displayToken) h['X-Display-Token'] = displayToken
   return h
 }
@@ -125,7 +165,8 @@ export function wsUrl(): string {
   const u = new URL(apiUrl('ws'), window.location.href)
   u.protocol = u.protocol === 'https:' ? 'wss:' : 'ws:'
   u.hash = ''
-  if (shareToken) u.searchParams.set('share', shareToken)
+  const share = getShareToken()
+  if (share) u.searchParams.set('share', share)
   if (displayToken) u.searchParams.set('display', displayToken)
   return u.toString()
 }

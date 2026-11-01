@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased
+
+- Fix: Präsentationslinks – der Freigabeschlüssel wird jetzt bei jeder Anfrage/WebSocket-Verbindung synchron aus der URL ermittelt (kein Effekt-Timing mehr), pro Dashboard gemerkt (kein Wiederverwenden für ein anderes Dashboard), auch `?share=` vor dem `#` wird akzeptiert, und fehlendes/blockiertes `sessionStorage` (Privatmodus, TV-Browser) bricht die App nicht mehr ab.
+- Hinweis im Freigabe-Dialog, wenn der Link über Home-Assistant-Ingress erzeugt wurde (auf anderen Geräten nicht nutzbar).
+- Tests: Frontend-Regressionstests (`shareFlow.test.tsx`), Backend-Test für anonyme Freigabezugriffe, Browser-E2E `tests/e2e/share_anonymous.py`.
+
 ## 1.7.0 – 2026-10-31
 
 - **Neu: MCP-Server im Add-on** (`/mcp` auf dem Direktport) mit acht Werkzeugen: `analytics_list_dashboards`, `analytics_get_dashboard`, `analytics_create_dashboard`, `analytics_update_dashboard`, `analytics_update_page`, `analytics_list_metrics`, `analytics_get_data`, `analytics_system_status`. Kein Löschen.

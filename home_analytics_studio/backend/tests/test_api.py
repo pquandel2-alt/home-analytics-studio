@@ -257,3 +257,37 @@ def test_mean_aggregation_uses_complete_days_only(app, ingress):
         lens.append((b.timestamp() - a.timestamp()) / 3600)
     expected = sum(lens) / len(lens)
     assert ingress.post("/api/data/scalar", json={"source": {"type": "metric", "id": "m_tag"}, "range": rng}).json()["value"] == pytest.approx(expected)
+
+
+def test_share_link_anonymous_first_request_expiry_and_websocket(app, ingress):
+    """A brand-new anonymous client (no cookie, no ingress) must get in with the share token alone."""
+    d1 = ingress.post("/api/dashboards", json={"name": "Hauszentrale"}).json()
+    d2 = ingress.post("/api/dashboards", json={"name": "Anderes"}).json()
+    tok1 = ingress.post("/api/auth/shares", json={"name": "TV", "dashboard_id": d1["id"]}).json()["token"]
+    tok2 = ingress.post("/api/auth/shares", json={"name": "Flur", "dashboard_id": d2["id"]}).json()["token"]
+    with direct_client(app) as s:  # fresh client, no session
+        assert s.get(f"/api/dashboards/{d1['id']}").status_code == 401  # no share -> rejected
+        first = s.get("/api/auth/status", headers={"X-Share-Token": tok1}).json()
+        assert first["authenticated"] and first["user"]["kind"] == "share"
+        assert s.get(f"/api/dashboards/{d1['id']}", headers={"X-Share-Token": tok1}).status_code == 200
+        # a token never opens another dashboard
+        assert s.get(f"/api/dashboards/{d2['id']}", headers={"X-Share-Token": tok1}).status_code == 403
+        assert s.get(f"/api/dashboards/{d2['id']}", headers={"X-Share-Token": tok2}).status_code == 200
+        # websocket: query-param token accepted, invalid rejected (TestClient reports port 80 for websockets, so a
+        # token-less websocket would count as ingress here – only the explicit-token paths are asserted)
+        with s.websocket_connect(f"/api/ws?share={tok1}") as ws:
+            assert ws.receive_json()["user"]["kind"] == "share"
+        with pytest.raises(Exception):
+            with s.websocket_connect("/api/ws?share=shr_nope"):
+                pass
+    # expiry: an expired link is rejected, an unexpired one with the same row is not
+    svc = app.state.services
+    from sqlalchemy import text
+    with svc.db.write() as conn:
+        conn.execute(text("UPDATE share_links SET expires_at=:e"), {"e": time.time() - 10})
+    with direct_client(app) as s:
+        assert s.get(f"/api/dashboards/{d1['id']}", headers={"X-Share-Token": tok1}).status_code == 401
+    with svc.db.write() as conn:
+        conn.execute(text("UPDATE share_links SET expires_at=NULL"))
+    with direct_client(app) as s:
+        assert s.get(f"/api/dashboards/{d1['id']}", headers={"X-Share-Token": tok1}).status_code == 200

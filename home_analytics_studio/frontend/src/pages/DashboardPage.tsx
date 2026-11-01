@@ -133,6 +133,12 @@ function ShareModal({ open, onClose, dashboard }: { open: boolean; onClose: () =
       ) : (
         <div className="space-y-3">
           <p className="text-sm text-warn">Der Link wird nur jetzt angezeigt. Bitte sicher aufbewahren und nicht öffentlich ins Internet stellen.</p>
+          {/hassio_ingress|\/ingress\//.test(link) && (
+            <p className="text-sm text-warn">
+              Dieser Link wurde über die Home-Assistant-Oberfläche (Ingress) erzeugt und verlangt auf anderen Geräten eine Home-Assistant-Anmeldung (HTTP 401).
+              Hinterlege unter Einstellungen die öffentliche Basis-URL (oder öffne Analytics Studio direkt über Port 8100) und erzeuge den Link erneut.
+            </p>
+          )}
           <Input readOnly value={link} onFocus={(e) => e.target.select()} />
           <Button
             icon={<Copy className="h-4 w-4" />}

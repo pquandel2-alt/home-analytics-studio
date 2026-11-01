@@ -1,6 +1,6 @@
 import { useEffect } from 'react'
 import { HashRouter, Navigate, Route, Routes, useLocation } from 'react-router-dom'
-import { onUnauthorized, setShareToken } from './api/client'
+import { getShareToken, onUnauthorized } from './api/client'
 import { live } from './api/live'
 import { ConfirmHost, PromptHost, Spinner, Toaster } from './components/ui'
 import Shell from './layout/Shell'
@@ -17,32 +17,14 @@ import SettingsPage from './pages/Settings'
 import { useApp } from './store/app'
 import { applyThemeToElement, resolveTheme } from './theme/presets'
 
-function ShareBootstrap() {
-  // share links: #/present/<id>?share=shr_xxx -> read-only token for API + websocket
-  const loc = useLocation()
-  useEffect(() => {
-    const p = new URLSearchParams(loc.search)
-    const tok = p.get('share')
-    if (tok) {
-      setShareToken(tok)
-      sessionStorage.setItem('has-share', tok)
-    } else if (loc.pathname.startsWith('/present') && sessionStorage.getItem('has-share')) {
-      setShareToken(sessionStorage.getItem('has-share'))
-    }
-  }, [loc.search, loc.pathname])
-  return null
-}
-
 function Gate() {
   const { status, loading, appearance, loadStatus, loadAppearance } = useApp()
   const loc = useLocation()
   const isPresent = loc.pathname.startsWith('/present')
-  const hasShare = new URLSearchParams(loc.search).has('share') || (isPresent && !!sessionStorage.getItem('has-share'))
+  // token is resolved from the URL by the api client itself (before any request); see getShareToken()
+  const hasShare = isPresent && !!getShareToken()
 
   useEffect(() => {
-    if (hasShare) {
-      setShareToken(new URLSearchParams(loc.search).get('share') || sessionStorage.getItem('has-share'))
-    }
     loadStatus().then((s) => {
       if (s?.authenticated || hasShare) {
         loadAppearance()
@@ -109,10 +91,7 @@ function Root() {
   const loc = useLocation()
   if (loc.pathname === '/display') return <DisplayRoot />
   return (
-    <>
-      <ShareBootstrap />
-      <Gate />
-    </>
+    <Gate />
   )
 }
 
